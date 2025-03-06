@@ -1,0 +1,149 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+}
+.navbar {
+    position: sticky; /* Sticky navbar */
+    width: 100%; /* Full width */
+    top: 0;
+    z-index: 1000;
+    background-color: #5a5af1;
+    color: white;
+    display: flex; /* Use flexbox for layout */
+    justify-content: space-between; /* Space out brand and menu */
+    align-items: center; /* Center items vertically */
+    padding: 15px 20px; /* Add padding for spacing */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    flex-wrap: wrap; /* Allow wrapping for smaller screens */
+}
+.navbar-brand {
+    font-size: 24px;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: white;
+    text-decoration: none;
+}
+.menu {
+    display: flex; /* Horizontal layout */
+    gap: 20px; /* Add spacing between dropdowns */
+    align-items: center;
+    flex-wrap: wrap; /* Wrap menu items on smaller screens */
+}
+.dropdown {
+    position: relative;
+}
+.dropdown-btn {
+    color: white;
+    padding: 10px 20px;
+    font-size: 16px;
+    background: #5a5af1;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+.dropdown-btn:hover {
+    background-color: #3a3aa0;
+}
+.dropdown-content {
+    display: none; /* Initially hidden */
+    position: absolute;
+    top: 100%; /* Position just below the parent */
+    left: 0;
+    background-color: white;
+    min-width: 160px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    border-radius: 5px;
+    z-index: 1001;
+    opacity: 0; /* Start hidden */
+    visibility: hidden; /* Ensure it's not visible */
+    transform: translateY(10px); /* Slight offset for animation */
+    transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
+}
+.dropdown:hover .dropdown-content {
+    display: block; /* Show dropdown */
+    opacity: 1; /* Make it visible */
+    visibility: visible; /* Remove hidden state */
+    transform: translateY(0); /* Reset offset */
+}
+.dropdown-content a {
+    color: black; /* Default color */
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    transition: background-color 0.3s ease, color 0.3s ease; /* Add color transition */
+}
+.dropdown-content a:hover {
+    background-color: #4949c8; /* Light background on hover */
+    color: white; /* Change text color to white on hover */
+}
+.user-info {
+    padding-right: 2.5%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: white;
+}
+button {
+    padding: 10px;
+    background-color: #5a5af1;
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+.logout-btn {
+    color: white;
+    text-decoration: none;
+    font-weight: bold;
+    padding: 5px 10px;
+    background-color: #ff4c4c;
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
+}
+.logout-btn:hover {
+    background-color: #e63939;
+}
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .navbar {
+        flex-direction: column; /* Stack items vertically */
+        align-items: flex-start; /* Align items to the left */
+    }
+    .menu {
+        flex-direction: column; /* Stack menu items */
+        width: 100%;
+    }
+    .dropdown-content {
+        position: static; /* Make dropdowns stack below */
+        box-shadow: none;
+        background-color: #f9f9f9;
+        border: 1px solid #ddd;
+    }
+    .dropdown-content a {
+        padding: 10px 20px;
+    }
+}
+#custom-textarea {
+    width: 98%; /* Full width of the parent container */
+    height: 150px; /* Set desired height */
+    padding: 5px; /* Inner spacing */
+    font-size: 16px; /* Text size */
+    font-family: Arial, sans-serif; /* Font family */
+    color: #333; /* Text color */
+    background-color: #f9f9f9; /* Light background */
+    border: 1px solid #ccc; /* Light border */
+    border-radius: 5px; /* Rounded corners */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+    resize: vertical; /* Allow vertical resizing only */
+    transition: border-color 0.3s ease, box-shadow 0.3s ease; /* Smooth transition */
+}
+#custom-textarea:focus {
+    outline: none; /* Remove default outline */
+    border-color: #5a5af1; /* Highlighted border */
+    box-shadow: 0 0 10px rgba(90, 90, 241, 0.3); /* Glow effect */
+}

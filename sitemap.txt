@@ -1,0 +1,50 @@
+/project
+  └── generate_hash.php
+  └── generate_sitemap.php
+  └── index.php
+  └── push.php
+  └── sitemap.txt
+  /classes
+    └── Consumables.php
+    └── Customers.php
+    └── Database.php
+    └── Income.php
+    └── RoomHistory.php
+    └── Rooms.php
+    └── Services.php
+    └── Stock.php
+    └── Validation.php
+  /controllers
+    └── consumables_controller.php
+    └── customers_controller.php
+    └── income_controller.php
+    └── logout.php
+    └── services_controller.php
+    └── stock_controller.php
+  /includes
+    └── navbar.php
+  /styles
+    └── navbar.css
+  /views
+    └── add_consumable.php
+    └── add_customer.php
+    └── add_income.php
+    └── add_service.php
+    └── backup_add_customer.php
+    └── backup_search_customer.php
+    └── checkout_customer.php
+    └── customer_history.php
+    └── edit_consumable.php
+    └── edit_service.php
+    └── login.php
+    └── manage_stock.php
+    └── search_customer.php
+    └── search_customer_api.php
+    └── view_consumables.php
+    └── view_customer_details.php
+    └── view_customer_history.php
+    └── view_customers.php
+    └── view_income.php
+    └── view_services.php
+    └── view_stock.php
+    └── view_stock_history.php

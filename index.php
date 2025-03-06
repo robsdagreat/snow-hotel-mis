@@ -1,0 +1,729 @@
+<?php
+session_start();
+if (!isset($_SESSION['user_id'])) {
+    header('Location: views/login.php');
+    exit;
+}
+
+// Placeholder data for dashboard metrics
+// In a real implementation, you would fetch this from your database
+$metrics = [
+    'total_guests' => 42,
+    'occupied_rooms' => 15,
+    'available_rooms' => 25,
+    'pending_checkouts' => 3,
+    'recent_bookings' => 8,
+    'monthly_revenue' => 28500
+];
+
+// Get current date and formatted time
+$today = date('l, F j, Y');
+$current_time = date('h:i A');
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Snow Hotel Management System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #5a5af1;
+            --primary-dark: #4747c2;
+            --primary-light: #8080ff;
+            --accent: #ff6b6b;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+            --dark: #333;
+            --light: #f8f9fa;
+            --gray: #6c757d;
+            --gray-light: #e9ecef;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+            --radius: 8px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6fc;
+            color: var(--dark);
+            line-height: 1.6;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            background: var(--primary);
+            color: white;
+            padding: 1.5rem;
+            position: fixed;
+            height: 100vh;
+            width: 260px;
+            z-index: 100;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 2.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo i {
+            font-size: 1.8rem;
+        }
+
+        .nav-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .nav-section-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.75rem;
+            opacity: 0.8;
+        }
+
+        .nav-links {
+            list-style: none;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius);
+            margin-bottom: 0.25rem;
+            text-decoration: none;
+            color: white;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-link.active {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .nav-link i {
+            margin-right: 0.75rem;
+            font-size: 1.1rem;
+            width: 1.5rem;
+            text-align: center;
+        }
+
+        /* Main Content Styles */
+        .main-content {
+            grid-column: 2;
+            padding: 1.5rem 2rem;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .page-title h1 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 0.25rem;
+        }
+
+        .breadcrumb {
+            color: var(--gray);
+            font-size: 0.875rem;
+        }
+
+        .user-nav {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .user-nav .icon-button {
+            background: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--gray);
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: var(--shadow);
+        }
+
+        .user-nav .icon-button:hover {
+            color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 1rem;
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        .user-profile .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .user-profile .user-info {
+            line-height: 1.3;
+        }
+
+        .user-profile .user-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .user-profile .user-role {
+            font-size: 0.8rem;
+            color: var(--gray);
+        }
+
+        .dropdown-menu {
+            position: relative;
+            display: inline-block;
+        }
+
+        /* Dashboard Sections */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .dashboard-card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .metric-card {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .metric-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .metric-icon.purple {
+            background: rgba(90, 90, 241, 0.1);
+            color: var(--primary);
+        }
+
+        .metric-icon.red {
+            background: rgba(244, 67, 54, 0.1);
+            color: var(--danger);
+        }
+
+        .metric-icon.green {
+            background: rgba(76, 175, 80, 0.1);
+            color: var(--success);
+        }
+
+        .metric-icon.orange {
+            background: rgba(255, 152, 0, 0.1);
+            color: var(--warning);
+        }
+
+        .metric-details h3 {
+            font-weight: 400;
+            font-size: 0.9rem;
+            color: var(--gray);
+            margin-bottom: 0.25rem;
+        }
+
+        .metric-details .metric-value {
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1.25rem;
+            color: var(--dark);
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .action-card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 1.25rem;
+            text-align: center;
+            text-decoration: none;
+            color: var(--dark);
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+        }
+
+        .action-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+            color: var(--primary);
+        }
+
+        .action-card i {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            color: var(--primary);
+        }
+
+        .action-card .action-name {
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        .recent-activity {
+            background: white;
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.35rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-badge.checkin {
+            background-color: rgba(76, 175, 80, 0.1);
+            color: var(--success);
+        }
+
+        .status-badge.checkout {
+            background-color: rgba(244, 67, 54, 0.1);
+            color: var(--danger);
+        }
+
+        .status-badge.reservation {
+            background-color: rgba(255, 152, 0, 0.1);
+            color: var(--warning);
+        }
+
+        .activity-list {
+            list-style: none;
+        }
+
+        .activity-item {
+            padding: 1rem 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--gray-light);
+        }
+
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+
+        .activity-details {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .activity-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        .activity-text {
+            line-height: 1.4;
+        }
+
+        .activity-text .activity-title {
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        .activity-text .activity-time {
+            font-size: 0.8rem;
+            color: var(--gray);
+        }
+
+        .notification-count {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: var(--accent);
+            color: white;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+
+        /* Footer Styles */
+        footer {
+            margin-top: 2rem;
+            text-align: center;
+            font-size: 0.875rem;
+            color: var(--gray);
+            padding: 1.5rem 0;
+            border-top: 1px solid var(--gray-light);
+        }
+
+        .logout-link {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .logout-link:hover {
+            text-decoration: underline;
+        }
+        
+        /* Media Queries for Responsiveness */
+        @media (max-width: 992px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .main-content {
+                grid-column: 1;
+            }
+            
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            
+            .menu-toggle {
+                display: block;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .top-bar {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+            
+            .user-nav {
+                width: 100%;
+                justify-content: flex-end;
+            }
+            
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .quick-actions {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-snowflake"></i>
+                    <span>Snow Hotel</span>
+                </div>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Main</div>
+                <ul class="nav-links">
+                    <li><a href="index.php" class="nav-link active"><i class="fas fa-th-large"></i>Dashboard</a></li>
+                    <li><a href="views/view_customers.php" class="nav-link"><i class="fas fa-users"></i>Customers</a></li>
+                    <li><a href="views/view_services.php" class="nav-link"><i class="fas fa-concierge-bell"></i>Services</a></li>
+                    <li><a href="views/view_consumables.php" class="nav-link"><i class="fas fa-shopping-basket"></i>Consumables</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Management</div>
+                <ul class="nav-links">
+                    <li><a href="views/manage_stock.php" class="nav-link"><i class="fas fa-boxes"></i>Inventory</a></li>
+                    <li><a href="views/view_income.php" class="nav-link"><i class="fas fa-money-bill-wave"></i>Revenue</a></li>
+                    <li><a href="views/view_customer_history.php" class="nav-link"><i class="fas fa-history"></i>History</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section" style="margin-top: auto;">
+                <ul class="nav-links">
+                    <li><a href="controllers/logout.php" class="nav-link"><i class="fas fa-sign-out-alt"></i>Logout</a></li>
+                </ul>
+            </div>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="top-bar">
+                <div class="page-title">
+                    <h1>Dashboard</h1>
+                    <div class="breadcrumb"><?= $today ?> | <?= $current_time ?></div>
+                </div>
+                
+                <div class="user-nav">
+                    <div class="dropdown-menu">
+                        <button class="icon-button">
+                            <i class="far fa-bell"></i>
+                            <span class="notification-count">3</span>
+                        </button>
+                    </div>
+                    
+                    <div class="user-profile">
+                        <div class="avatar">
+                            <?= strtoupper(substr($_SESSION['username'] ?? 'U', 0, 1)) ?>
+                        </div>
+                        <div class="user-info">
+                            <div class="user-name"><?= htmlspecialchars($_SESSION['username'] ?? 'User') ?></div>
+                            <div class="user-role">Administrator</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Dashboard Metrics -->
+            <div class="dashboard-grid">
+                <div class="dashboard-card metric-card">
+                    <div class="metric-icon purple">
+                        <i class="fas fa-user-friends"></i>
+                    </div>
+                    <div class="metric-details">
+                        <h3>Total Guests</h3>
+                        <div class="metric-value"><?= $metrics['total_guests'] ?></div>
+                    </div>
+                </div>
+                
+                <div class="dashboard-card metric-card">
+                    <div class="metric-icon green">
+                        <i class="fas fa-door-closed"></i>
+                    </div>
+                    <div class="metric-details">
+                        <h3>Occupied Rooms</h3>
+                        <div class="metric-value"><?= $metrics['occupied_rooms'] ?></div>
+                    </div>
+                </div>
+                
+                <div class="dashboard-card metric-card">
+                    <div class="metric-icon orange">
+                        <i class="fas fa-door-open"></i>
+                    </div>
+                    <div class="metric-details">
+                        <h3>Available Rooms</h3>
+                        <div class="metric-value"><?= $metrics['available_rooms'] ?></div>
+                    </div>
+                </div>
+                
+                <div class="dashboard-card metric-card">
+                    <div class="metric-icon red">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="metric-details">
+                        <h3>Monthly Revenue</h3>
+                        <div class="metric-value">$<?= number_format($metrics['monthly_revenue']) ?></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <h2 class="section-title">Quick Actions</h2>
+            <div class="quick-actions">
+                <a href="views/add_customer.php" class="action-card">
+                    <i class="fas fa-user-plus"></i>
+                    <span class="action-name">Add Customer</span>
+                </a>
+                
+                <a href="views/search_customer.php" class="action-card">
+                    <i class="fas fa-search"></i>
+                    <span class="action-name">Search Customer</span>
+                </a>
+                
+                <a href="views/checkout_customer.php" class="action-card">
+                    <i class="fas fa-check-circle"></i>
+                    <span class="action-name">Checkout</span>
+                </a>
+                
+                <a href="views/add_income.php" class="action-card">
+                    <i class="fas fa-cash-register"></i>
+                    <span class="action-name">Record Income</span>
+                </a>
+                
+                <a href="views/manage_stock.php" class="action-card">
+                    <i class="fas fa-boxes"></i>
+                    <span class="action-name">Manage Stock</span>
+                </a>
+            </div>
+            
+            <!-- Recent Activity -->
+            <h2 class="section-title">Recent Activity</h2>
+            <div class="recent-activity dashboard-card">
+                <ul class="activity-list">
+                    <li class="activity-item">
+                        <div class="activity-details">
+                            <div class="activity-icon" style="background: rgba(76, 175, 80, 0.1); color: var(--success);">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <div class="activity-text">
+                                <div class="activity-title">James Wilson checked in</div>
+                                <div class="activity-time">Room 203 • 2 hours ago</div>
+                            </div>
+                        </div>
+                        <span class="status-badge checkin">Check-in</span>
+                    </li>
+                    
+                    <li class="activity-item">
+                        <div class="activity-details">
+                            <div class="activity-icon" style="background: rgba(244, 67, 54, 0.1); color: var(--danger);">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </div>
+                            <div class="activity-text">
+                                <div class="activity-title">Emily Parker checked out</div>
+                                <div class="activity-time">Room 105 • 4 hours ago</div>
+                            </div>
+                        </div>
+                        <span class="status-badge checkout">Check-out</span>
+                    </li>
+                    
+                    <li class="activity-item">
+                        <div class="activity-details">
+                            <div class="activity-icon" style="background: rgba(255, 152, 0, 0.1); color: var(--warning);">
+                                <i class="fas fa-calendar-check"></i>
+                            </div>
+                            <div class="activity-text">
+                                <div class="activity-title">New reservation by Michael Brown</div>
+                                <div class="activity-time">For next week • 5 hours ago</div>
+                            </div>
+                        </div>
+                        <span class="status-badge reservation">Reservation</span>
+                    </li>
+                    
+                    <li class="activity-item">
+                        <div class="activity-details">
+                            <div class="activity-icon" style="background: rgba(90, 90, 241, 0.1); color: var(--primary);">
+                                <i class="fas fa-box"></i>
+                            </div>
+                            <div class="activity-text">
+                                <div class="activity-title">Inventory updated</div>
+                                <div class="activity-time">By Admin • Yesterday</div>
+                            </div>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+            
+            <footer>
+                &copy; <?= date('Y') ?> Snow Hotel Management System. All rights reserved.
+            </footer>
+        </main>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // You can add JavaScript functionality here
+            // For example, toggle sidebar on mobile, dropdown menus, etc.
+            
+            // Sample notification counter update
+            setTimeout(function() {
+                const notifCount = document.querySelector('.notification-count');
+                if (notifCount) {
+                    notifCount.textContent = Math.floor(Math.random() * 5) + 1;
+                }
+            }, 5000);
+        });
+    </script>
+</body>
+</html>
