@@ -6,94 +6,495 @@ if (!isset($_SESSION['user_id'])) {
     header('Location: ../views/login.php');
     exit;
 }
+
+// Set breadcrumb variables
+$breadcrumb_section = "Customers";
+$breadcrumb_section_url = "view_customers.php";
+$breadcrumb_page = "Search Customer";
+
+$today = date('F d, Y'); // Format: March 09, 2025
+$current_time = date('h:i A');
 ?>
-<?php include '../includes/navbar.php'; ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Search Customer</title>
+    <title>Search Customer - Snow Hotel Management System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body {
-            font-family: Arial, sans-serif;
+        :root {
+            --primary: #5a5af1;
+            --primary-dark: #4747c2;
+            --primary-light: #8080ff;
+            --accent: #ff6b6b;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+            --dark: #333;
+            --light: #f8f9fa;
+            --gray: #6c757d;
+            --gray-light: #e9ecef;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+            --radius: 8px;
+        }
+
+        * {
             margin: 0;
             padding: 0;
-            background-color: #f4f4f9;
+            box-sizing: border-box;
         }
-        .container {
-            max-width: 800px;
-            margin: 50px auto;
-            padding: 20px;
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6fc;
+            color: var(--dark);
+            line-height: 1.6;
         }
-        h2 {
-            text-align: center;
-            color: #5a5af1;
-            margin-bottom: 20px;
+
+        .layout {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            min-height: 100vh;
         }
-        form {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin-bottom: 20px;
-        }
-        input[type="text"] {
-            padding: 10px;
-            font-size: 14px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            flex: 1;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        th, td {
-            padding: 10px;
-            border: 1px solid #ddd;
-            text-align: left;
-        }
-        th {
-            background-color: #5a5af1;
+
+        /* Sidebar Styles */
+        .sidebar {
+            background: var(--primary);
             color: white;
+            padding: 1.5rem;
+            position: fixed;
+            height: 100vh;
+            width: 260px;
+            z-index: 100;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
         }
-        tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-        tr:hover {
-            background-color: #f1f1f1;
-        }
-        .action-buttons {
+
+        .sidebar-header {
             display: flex;
-            gap: 10px;
+            align-items: center;
+            margin-bottom: 2.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
         }
-        .button {
-            padding: 8px 15px;
-            border-radius: 5px;
-            text-align: center;
-            font-size: 14px;
-            font-weight: bold;
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo i {
+            font-size: 1.8rem;
+        }
+
+        .nav-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .nav-section-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.75rem;
+            opacity: 0.8;
+        }
+
+        .nav-links {
+            list-style: none;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius);
+            margin-bottom: 0.25rem;
             text-decoration: none;
             color: white;
-            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+            font-weight: 500;
+            transition: background-color 0.2s;
         }
-        .view-button {
-            background-color: #4CAF50;
+
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.1);
         }
-        .return-button {
-            background-color: #ff9800;
+
+        .nav-link.active {
+            background-color: rgba(255, 255, 255, 0.2);
         }
+
+        .nav-link i {
+            margin-right: 0.75rem;
+            font-size: 1.1rem;
+            width: 1.5rem;
+            text-align: center;
+        }
+
+        /* Main Content Styles */
+        .main-content {
+            grid-column: 2;
+            padding: 1.5rem 2rem;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .page-title h1 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 0.25rem;
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            color: var(--gray);
+            font-size: 0.875rem;
+        }
+
+        .breadcrumb a {
+            color: var(--primary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .breadcrumb a:hover {
+            color: var(--primary-dark);
+            text-decoration: underline;
+        }
+
+        .breadcrumb span {
+            margin: 0 0.5rem;
+        }
+
+        .breadcrumb .time-display {
+            margin-left: auto;
+        }
+
+        .user-nav {
+            display: flex;
+            align-items: center;
+        }
+
+        .menu-toggle {
+            background: none;
+            border: none;
+            color: var(--dark);
+            font-size: 1.25rem;
+            cursor: pointer;
+            display: none;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 1rem;
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            cursor: pointer;
+        }
+
+        .user-profile .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .user-profile .user-info {
+            line-height: 1.3;
+        }
+
+        .user-profile .user-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .user-profile .user-role {
+            font-size: 0.8rem;
+            color: var(--gray);
+        }
+
+        /* Search Container */
+        .search-container {
+            background-color: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+
+        .search-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: var(--dark);
+        }
+
+        .search-form {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--gray-light);
+            border-radius: var(--radius);
+            font-size: 0.95rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(90, 90, 241, 0.2);
+        }
+
+        /* Table Styles */
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .results-table thead th {
+            background-color: var(--primary);
+            color: white;
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .results-table tbody tr:nth-child(even) {
+            background-color: var(--light);
+        }
+
+        .results-table tbody tr:hover {
+            background-color: var(--gray-light);
+        }
+
+        .results-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--gray-light);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius);
+            font-weight: 500;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-sm {
+            padding: 0.35rem 0.75rem;
+            font-size: 0.85rem;
+        }
+
+        .btn-success {
+            background-color: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #3d8b40;
+        }
+
+        .btn-warning {
+            background-color: var(--warning);
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background-color: #e59500;
+        }
+
         .no-results {
             text-align: center;
-            font-size: 16px;
-            color: #555;
-            margin-top: 20px;
+            padding: 2rem;
+            font-size: 1rem;
+            color: var(--gray);
+        }
+
+        /* Footer Styles */
+        footer {
+            margin-top: 2rem;
+            text-align: center;
+            font-size: 0.875rem;
+            color: var(--gray);
+            padding: 1.5rem 0;
+            border-top: 1px solid var(--gray-light);
+        }
+
+        /* Media Queries for Responsiveness */
+        @media (max-width: 992px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                grid-column: 1;
+            }
+            
+            .menu-toggle {
+                display: block;
+                width: 40px;
+                height: 40px;
+                background: white;
+                border-radius: 50%;
+                box-shadow: var(--shadow);
+                color: var(--primary);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .top-bar {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+            
+            .user-nav {
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            .search-form {
+                flex-direction: column;
+            }
+            
+            .table-responsive {
+                overflow-x: auto;
+            }
         }
     </style>
+</head>
+<body>
+    <div class="layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-snowflake"></i>
+                    <span>Snow Hotel</span>
+                </div>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Main</div>
+                <ul class="nav-links">
+                    <li><a href="../index.php" class="nav-link"><i class="fas fa-th-large"></i>Dashboard</a></li>
+                    <li><a href="view_customers.php" class="nav-link active"><i class="fas fa-users"></i>Customers</a></li>
+                    <li><a href="view_services.php" class="nav-link"><i class="fas fa-concierge-bell"></i>Services</a></li>
+                    <li><a href="view_consumables.php" class="nav-link"><i class="fas fa-shopping-basket"></i>Consumables</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Management</div>
+                <ul class="nav-links">
+                    <li><a href="manage_stock.php" class="nav-link"><i class="fas fa-boxes"></i>Inventory</a></li>
+                    <li><a href="view_income.php" class="nav-link"><i class="fas fa-money-bill-wave"></i>Revenue</a></li>
+                    <li><a href="view_customer_history.php" class="nav-link"><i class="fas fa-history"></i>History</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section" style="margin-top: auto;">
+                <ul class="nav-links">
+                    <li><a href="../controllers/logout.php" class="nav-link"><i class="fas fa-sign-out-alt"></i>Logout</a></li>
+                </ul>
+            </div>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="top-bar">
+                <button id="menuToggle" class="menu-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                
+                <div class="page-title">
+                    <h1>Search Customer</h1>
+                    <div class="breadcrumb">
+                        <a href="../index.php">Dashboard</a>
+                        <span>&gt;</span>
+                        <a href="<?= $breadcrumb_section_url ?>"><?= $breadcrumb_section ?></a>
+                        <span>&gt;</span>
+                        <span><?= $breadcrumb_page ?></span>
+                        <span class="time-display" style="margin-left: auto;"><?= $today ?> | <?= $current_time ?></span>
+                    </div>
+                </div>
+                
+                <div class="user-nav">
+                    <div class="user-profile" id="userProfileButton">
+                        <div class="avatar">
+                            <?= strtoupper(substr($_SESSION['username'] ?? 'U', 0, 1)) ?>
+                        </div>
+                        <div class="user-info">
+                            <div class="user-name"><?= htmlspecialchars($_SESSION['username'] ?? 'User') ?></div>
+                            <div class="user-role">Administrator</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Search Container -->
+            <div class="search-container">
+                <h2 class="search-title">Find Customer</h2>
+                
+                <div class="search-form">
+                    <input type="text" id="search_term" class="search-input" placeholder="Search by name, room number, or ID" onkeyup="searchCustomer()">
+                </div>
+                
+                <div class="table-responsive">
+                    <div id="results"></div>
+                </div>
+            </div>
+            
+            <footer>
+                &copy; <?= date('Y') ?> Snow Hotel Management System. All rights reserved.
+            </footer>
+        </main>
+    </div>
+    
     <script>
         function searchCustomer() {
             const searchTerm = document.getElementById('search_term').value;
@@ -103,12 +504,13 @@ if (!isset($_SESSION['user_id'])) {
                 resultsContainer.innerHTML = '';
                 return;
             }
+            
             fetch(`search_customer_api.php?search_term=${encodeURIComponent(searchTerm)}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.length > 0) {
                         let tableContent = `
-                            <table>
+                            <table class="results-table">
                                 <thead>
                                     <tr>
                                         <th>ID</th>
@@ -129,9 +531,11 @@ if (!isset($_SESSION['user_id'])) {
                                     <td>${row.room_number}</td>
                                     <td>${row.arrival_datetime}</td>
                                     <td>${row.departure_datetime}</td>
-                                    <td class="action-buttons">
-                                        <a href="view_customer_details.php?id=${row.id}" class="button view-button">View</a>
-                                        <a href="returning_customer.php?returning_customer=${row.id}" class="button return-button">Register</a>
+                                    <td>
+                                        <div class="action-buttons">
+                                            <a href="view_customer_details.php?id=${row.id}" class="btn btn-sm btn-success">View</a>
+                                            <a href="returning_customer.php?returning_customer=${row.id}" class="btn btn-sm btn-warning">Register</a>
+                                        </div>
                                     </td>
                                 </tr>
                             `;
@@ -139,20 +543,48 @@ if (!isset($_SESSION['user_id'])) {
                         tableContent += `</tbody></table>`;
                         resultsContainer.innerHTML = tableContent;
                     } else {
-                        resultsContainer.innerHTML = `<p class="no-results">No customers found.</p>`;
+                        resultsContainer.innerHTML = `<div class="no-results">No customers found matching your search criteria.</div>`;
                     }
                 })
-                .catch(err => console.error('Error fetching search results:', err));
+                .catch(err => {
+                    console.error('Error fetching search results:', err);
+                    resultsContainer.innerHTML = `<div class="no-results">An error occurred while searching. Please try again.</div>`;
+                });
         }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Mobile menu toggle
+            const menuToggle = document.getElementById('menuToggle');
+            const sidebar = document.querySelector('.sidebar');
+            const mainContent = document.querySelector('.main-content');
+            
+            if (menuToggle) {
+                menuToggle.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation(); // Prevent event from bubbling up
+                    sidebar.classList.toggle('active');
+                    
+                    // Update toggle icon based on sidebar state
+                    if (sidebar.classList.contains('active')) {
+                        menuToggle.innerHTML = '<i class="fas fa-times"></i>'; // Change to X icon when open
+                    } else {
+                        menuToggle.innerHTML = '<i class="fas fa-bars"></i>'; // Change back to bars when closed
+                    }
+                });
+            }
+            
+            // Close sidebar when clicking on main content (for mobile)
+            if (mainContent) {
+                mainContent.addEventListener('click', function() {
+                    if (window.innerWidth <= 992 && sidebar.classList.contains('active')) {
+                        sidebar.classList.remove('active');
+                        if (menuToggle) {
+                            menuToggle.innerHTML = '<i class="fas fa-bars"></i>';
+                        }
+                    }
+                });
+            }
+        });
     </script>
-</head>
-<body>
-    <div class="container">
-        <h2>Search Customer</h2>
-        <form onsubmit="return false;">
-            <input type="text" id="search_term" placeholder="Search by name, room number, or ID" onkeyup="searchCustomer()">
-        </form>
-        <div id="results"></div>
-    </div>
 </body>
 </html>

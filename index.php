@@ -5,16 +5,60 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-// Placeholder data for dashboard metrics
-// In a real implementation, you would fetch this from your database
+require_once 'classes/Database.php';
+require_once 'classes/Customers.php';
+require_once 'classes/Rooms.php';
+
+// Initialize classes to access real data
+$db = new Database();
+$customers = new Customers();
+$rooms = new Rooms();
+
+// Get actual metrics from database
+$allCustomers = $customers->getAllCustomers();
+$activeCustomers = array_filter($allCustomers, function($customer) {
+    return $customer['status'] != 0; // Only counting customers who haven't checked out
+});
+
+$availableRooms = $rooms->getAvailableRooms();
+
+// Calculate customers with departure date within next 2 days
+$twoDaysFromNow = date('Y-m-d', strtotime('+2 days'));
+$today = date('Y-m-d');
+$pendingCheckouts = array_filter($activeCustomers, function($customer) use ($twoDaysFromNow, $today) {
+    $departureDate = date('Y-m-d', strtotime($customer['departure_datetime']));
+    return $departureDate >= $today && $departureDate <= $twoDaysFromNow;
+});
+
+// Calculate metrics
 $metrics = [
-    'total_guests' => 42,
-    'occupied_rooms' => 15,
-    'available_rooms' => 25,
-    'pending_checkouts' => 3,
-    'recent_bookings' => 8,
-    'monthly_revenue' => 28500
+    'total_guests' => count($activeCustomers),
+    'occupied_rooms' => count($activeCustomers), // Since one customer occupies one room
+    'available_rooms' => count($availableRooms),
+    'pending_checkouts' => count($pendingCheckouts), // Customers departing within 2 days
+    'monthly_revenue' => 0 // Will calculate below
 ];
+
+// Calculate monthly revenue
+$currentMonth = date('m');
+$currentYear = date('Y');
+$monthlyRevenue = 0;
+
+// Get customer history for current month to calculate revenue
+$customerHistory = $customers->getCustomerHistory();
+foreach ($customerHistory as $history) {
+    $departureDate = new DateTime($history['departure_datetime']);
+    if ($departureDate->format('m') == $currentMonth && $departureDate->format('Y') == $currentYear) {
+        // Assuming you have a room_rate field in your customer history
+        // You might need to adjust this logic based on your actual database structure
+        $customer = $customers->getCustomerById($history['id']);
+        if ($customer) {
+            $monthlyRevenue += $customer['total_amount'];
+        }
+    }
+}
+
+$metrics['monthly_revenue'] = $monthlyRevenue;
 
 // Get current date and formatted time
 $today = date('l, F j, Y');
@@ -80,6 +124,7 @@ $current_time = date('h:i A');
         .sidebar-header {
             display: flex;
             align-items: center;
+            justify-content: space-between;
             margin-bottom: 2.5rem;
             padding-bottom: 1rem;
             border-bottom: 1px solid rgba(255, 255, 255, 0.2);
@@ -97,6 +142,15 @@ $current_time = date('h:i A');
         .logo i {
             font-size: 1.8rem;
         }
+
+        /* .close-sidebar {
+            display: none;
+            color: white;
+            background: transparent;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+        } */
 
         .nav-section {
             margin-bottom: 1.5rem;
@@ -169,27 +223,6 @@ $current_time = date('h:i A');
         .user-nav {
             display: flex;
             align-items: center;
-            gap: 1.5rem;
-        }
-
-        .user-nav .icon-button {
-            background: white;
-            border: none;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--gray);
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: var(--shadow);
-        }
-
-        .user-nav .icon-button:hover {
-            color: var(--primary);
-            transform: translateY(-2px);
         }
 
         .user-profile {
@@ -227,11 +260,6 @@ $current_time = date('h:i A');
         .user-profile .user-role {
             font-size: 0.8rem;
             color: var(--gray);
-        }
-
-        .dropdown-menu {
-            position: relative;
-            display: inline-block;
         }
 
         /* Dashboard Sections */
@@ -427,20 +455,14 @@ $current_time = date('h:i A');
             color: var(--gray);
         }
 
-        .notification-count {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            background: var(--accent);
-            color: white;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.7rem;
-            font-weight: bold;
+        /* Burger Menu */
+        .menu-toggle {
+            background: none;
+            border: none;
+            color: var(--dark);
+            font-size: 1.25rem;
+            cursor: pointer;
+            display: none;
         }
 
         /* Footer Styles */
@@ -484,6 +506,12 @@ $current_time = date('h:i A');
             
             .menu-toggle {
                 display: block;
+                width: 40px;
+                height: 40px;
+                background: white;
+                border-radius: 50%;
+                box-shadow: var(--shadow);
+                color: var(--primary);
             }
         }
         
@@ -502,6 +530,10 @@ $current_time = date('h:i A');
             .dashboard-grid {
                 grid-template-columns: 1fr;
             }
+            
+            .main-content {
+                padding: 1.5rem 1rem;
+            }
         }
         
         @media (max-width: 576px) {
@@ -512,14 +544,15 @@ $current_time = date('h:i A');
     </style>
 </head>
 <body>
+    
     <div class="layout">
         <!-- Sidebar -->
-        <aside class="sidebar">
+        <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
                     <i class="fas fa-snowflake"></i>
                     <span>Snow Hotel</span>
-                </div>
+                </div>  
             </div>
             
             <div class="nav-section">
@@ -536,7 +569,7 @@ $current_time = date('h:i A');
                 <div class="nav-section-title">Management</div>
                 <ul class="nav-links">
                     <li><a href="views/manage_stock.php" class="nav-link"><i class="fas fa-boxes"></i>Inventory</a></li>
-                    <li><a href="views/view_income.php" class="nav-link"><i class="fas fa-money-bill-wave"></i>Revenue</a></li>
+                    <li><a href="views/add_income.php" class="nav-link"><i class="fas fa-money-bill-wave"></i>Revenue</a></li>
                     <li><a href="views/view_customer_history.php" class="nav-link"><i class="fas fa-history"></i>History</a></li>
                 </ul>
             </div>
@@ -551,19 +584,15 @@ $current_time = date('h:i A');
         <!-- Main Content -->
         <main class="main-content">
             <div class="top-bar">
+            <button id="menuToggle" class="menu-toggle">
+                <i class="fas fa-bars"></i>
+            </button>
                 <div class="page-title">
                     <h1>Dashboard</h1>
                     <div class="breadcrumb"><?= $today ?> | <?= $current_time ?></div>
                 </div>
                 
                 <div class="user-nav">
-                    <div class="dropdown-menu">
-                        <button class="icon-button">
-                            <i class="far fa-bell"></i>
-                            <span class="notification-count">3</span>
-                        </button>
-                    </div>
-                    
                     <div class="user-profile">
                         <div class="avatar">
                             <?= strtoupper(substr($_SESSION['username'] ?? 'U', 0, 1)) ?>
@@ -648,7 +677,7 @@ $current_time = date('h:i A');
                 </a>
             </div>
             
-            <!-- Recent Activity -->
+            <!-- Recent Activity
             <h2 class="section-title">Recent Activity</h2>
             <div class="recent-activity dashboard-card">
                 <ul class="activity-list">
@@ -703,7 +732,7 @@ $current_time = date('h:i A');
                         </div>
                     </li>
                 </ul>
-            </div>
+            </div> -->
             
             <footer>
                 &copy; <?= date('Y') ?> Snow Hotel Management System. All rights reserved.
@@ -713,17 +742,38 @@ $current_time = date('h:i A');
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // You can add JavaScript functionality here
-            // For example, toggle sidebar on mobile, dropdown menus, etc.
+    // Mobile menu toggle
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebar = document.querySelector('.sidebar');
+    const mainContent = document.querySelector('.main-content');
+    
+    if (menuToggle) {
+        menuToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation(); // Prevent event from bubbling up
+            sidebar.classList.toggle('active');
             
-            // Sample notification counter update
-            setTimeout(function() {
-                const notifCount = document.querySelector('.notification-count');
-                if (notifCount) {
-                    notifCount.textContent = Math.floor(Math.random() * 5) + 1;
-                }
-            }, 5000);
+            // Update toggle icon based on sidebar state
+            if (sidebar.classList.contains('active')) {
+                menuToggle.innerHTML = '<i class="fas fa-times"></i>'; // Change to X icon when open
+            } else {
+                menuToggle.innerHTML = '<i class="fas fa-bars"></i>'; // Change back to bars when closed
+            }
         });
+    }
+        
+        // Close sidebar when clicking on main content (for mobile)
+        if (mainContent) {
+            mainContent.addEventListener('click', function() {
+                if (window.innerWidth <= 992 && sidebar.classList.contains('active')) {
+                    sidebar.classList.remove('active');
+                    if (menuToggle) {
+                        menuToggle.innerHTML = '<i class="fas fa-bars"></i>';
+                    }
+                }
+            });
+        }
+    });
     </script>
 </body>
 </html>

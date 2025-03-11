@@ -156,11 +156,11 @@ class Customers{
     }
     public function getCustomerById($id) {
         $sql = "
-            SELECT customers.*, rooms.room_number
-            FROM customers
-            JOIN rooms ON customers.room_id = rooms.id
-            WHERE customers.id = :id
-        ";
+            SELECT c.*, r.room_number 
+            FROM customers c
+            LEFT JOIN rooms r ON c.room_id = r.id
+            WHERE c.id = :id";
+        
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([':id' => $id]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
@@ -305,6 +305,26 @@ class Customers{
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([':term' => "%$term%"]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    // Add this method to your Customers class
+    public function getPendingCheckouts($days = 2) {
+        $today = date('Y-m-d');
+        $futureDate = date('Y-m-d', strtotime("+$days days"));
+        
+        $sql = "
+            SELECT COUNT(*) as count
+            FROM customers 
+            WHERE DATE(departure_datetime) BETWEEN :today AND :futureDate
+            AND status != 0
+        ";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([
+            ':today' => $today,
+            ':futureDate' => $futureDate
+        ]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result['count'];
     }
 }
 ?>
