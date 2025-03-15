@@ -424,8 +424,8 @@ $current_time = date('h:i A');
             <div class="nav-section">
                 <div class="nav-section-title">Management</div>
                 <ul class="nav-links">
-                    <li><a href="manage_stock.php" class="nav-link"><i class="fas fa-boxes"></i>Inventory</a></li>
-                    <li><a href="view_income.php" class="nav-link"><i class="fas fa-money-bill-wave"></i>Revenue</a></li>
+                    <li><a href="view_stock.php" class="nav-link"><i class="fas fa-boxes"></i>Inventory</a></li>
+                    <li><a href="add_income.php" class="nav-link"><i class="fas fa-money-bill-wave"></i>Revenue</a></li>
                     <li><a href="view_customer_history.php" class="nav-link"><i class="fas fa-history"></i>History</a></li>
                 </ul>
             </div>

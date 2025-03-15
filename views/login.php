@@ -234,6 +234,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="error-message">
                 <i class="fas fa-exclamation-circle"></i>
                 <?= htmlspecialchars($error) ?>
+                <?
+            print($_SESSION['user_id']);
+            print($_SESSION['username']);
+            print($_SESSION['role']);
+            print($_SESSION['password']);
+                ?>
+
             </div>
         <?php endif; ?>
 

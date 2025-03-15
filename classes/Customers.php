@@ -295,7 +295,8 @@ class Customers{
     }
     public function searchCustomer($term) {
         $sql = "
-            SELECT c.id, c.guest_name, r.room_number, c.arrival_datetime, c.departure_datetime
+            SELECT c.id, c.guest_name, r.room_number, c.arrival_datetime, c.departure_datetime, 
+                   c.email_address, c.mobile_number, c.room_id
             FROM customers c
             LEFT JOIN rooms r ON c.room_id = r.id
             WHERE c.guest_name LIKE :term 

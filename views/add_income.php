@@ -9,14 +9,14 @@ require_once '../classes/Database.php';
 require_once '../classes/Income.php';
 require_once '../classes/Validation.php';
 require_once '../classes/Customers.php'; 
-require_once '../classes/Services.php'; // Add Services class
+require_once '../classes/Services.php'; 
 
 // Initialize classes
 $db = new Database();
 $income = new Income();
 $validation = new Validation();
 $customer = new Customers();
-$service = new Services(); // Initialize Services class
+$service = new Services(); 
 
 // Get all services for dropdown
 $services = $service->getAllServices();
@@ -46,8 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $amount = $validation->sanitizeInput($_POST['amount'] ?? '');
     $description = $validation->sanitizeInput($_POST['description'] ?? '');
     $income_date = $validation->sanitizeInput($_POST['income_date'] ?? '');
-    $income_type = $validation->sanitizeInput($_POST['income_type'] ?? '');
-    $service_id = $validation->sanitizeInput($_POST['serrvice_id'] ?? '');
+    $service_id = $validation->sanitizeInput($_POST['service_id'] ?? '');
     $customer_id = $validation->sanitizeInput($_POST['customer_id'] ?? '');
     
     // Check for errors
@@ -65,8 +64,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors['income_date'] = 'Date is required';
     }
     
-    if (empty($income_type)) {
-        $errors['income_type'] = 'Income type is required';
+    if (empty($service_id)) {
+        $errors['service_id'] = 'Service is required';
     }
     
     // If no errors, save the income
@@ -508,6 +507,17 @@ if (isset($_GET['customer_id']) && !empty($_GET['customer_id'])) {
             background-color: var(--primary);
             color: white;
         }
+        
+        .btn-secondary{
+            padding: 0.45rem 0.9rem;
+            border-radius: var(--radius);
+            font-size: 1rem;
+            font-weight: 200;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;  
+        }    
 
         .btn-primary:hover {
             background-color: var(--primary-dark);
@@ -634,7 +644,7 @@ if (isset($_GET['customer_id']) && !empty($_GET['customer_id'])) {
             <div class="nav-section">
                 <div class="nav-section-title">Management</div>
                 <ul class="nav-links">
-                    <li><a href="manage_stock.php" class="nav-link"><i class="fas fa-boxes"></i>Inventory</a></li>
+                    <li><a href="view_stock.php" class="nav-link"><i class="fas fa-boxes"></i>Inventory</a></li>
                     <li><a href="view_income.php" class="nav-link active"><i class="fas fa-money-bill-wave"></i>Revenue</a></li>
                     <li><a href="view_customer_history.php" class="nav-link"><i class="fas fa-history"></i>History</a></li>
                 </ul>
@@ -713,13 +723,12 @@ if (isset($_GET['customer_id']) && !empty($_GET['customer_id'])) {
                             <?php if ($selectedCustomer): ?>
                             <div class="customer-name"><?= htmlspecialchars($selectedCustomer['guest_name']) ?></div>
                             <div class="customer-details">
-                                ID/Passport: <?= htmlspecialchars($selectedCustomer['id_passport']) ?> | 
-                                Email: <?= htmlspecialchars($selectedCustomer['email_address']) ?> | 
-                                Phone: <?= htmlspecialchars($selectedCustomer['mobile_number']) ?>
+                                Customer room: <?= htmlspecialchars($selectedCustomer['room_id'] ?? 'N/A') ?> |  
+                                Phone: <?= htmlspecialchars($selectedCustomer['mobile_number'] ?? 'N/A') ?>
                             </div>
                             <?php endif; ?>
                             <div class="customer-actions">
-                                <button type="button" id="clearCustomer" class="btn-link">Change Customer</button>
+                                <button type="button" id="clearCustomer" class="btn btn-secondary">Change Customer</button>
                             </div>
                         </div>
                         
@@ -747,8 +756,8 @@ if (isset($_GET['customer_id']) && !empty($_GET['customer_id'])) {
                     </div>
                     
                     <div class="form-group">
-                        <label for="income_type" class="form-label">Income Type</label>
-                        <select id="income_type" name="income_type" class="form-control <?= isset($errors['income_type']) ? 'is-invalid' : '' ?>">
+                      <label for="service_id" class="form-label">Service</label>
+                        <select id="service_id" name="service_id" class="form-control <?= isset($errors['service_id']) ? 'is-invalid' : '' ?>">
                             <option value="">Select Income Type</option>
                             <?php foreach ($services as $srv): ?>
                             <option value="<?= htmlspecialchars($srv['id']) ?>" 
@@ -761,13 +770,13 @@ if (isset($_GET['customer_id']) && !empty($_GET['customer_id'])) {
                             <option value="other" disabled>No services found. Please add services first.</option>
                             <?php endif; ?>
                         </select>
-                        <?php if (isset($errors['income_type'])): ?>
-                        <div class="invalid-feedback"><?= $errors['income_type'] ?></div>
+                        <?php if (isset($errors['service_id'])): ?>
+                        <div class="invalid-feedback"><?= $errors['service_id'] ?></div>
                         <?php endif; ?>
                         
                         <small class="form-text text-muted">
                             Select the type of service or income source. 
-                            <a href="manage_services.php">Manage services</a>
+                            <a href="view_services  .php">Manage services</a>
                         </small>
                     </div>
                     
@@ -901,11 +910,10 @@ if (isset($_GET['customer_id']) && !empty($_GET['customer_id'])) {
                                         const customerDetailsEl = document.createElement('div');
                                         customerDetailsEl.className = 'customer-details';
                                         customerDetailsEl.innerHTML = `
-                                            ID/Passport: ${customer.id_passport || 'N/A'} | 
-                                            Email: ${customer.email_address || 'N/A'} | 
+                                            Customer room: ${customer.room_number || 'N/A'} | 
                                             Phone: ${customer.mobile_number || 'N/A'}
                                         `;
-                                        
+                                                                                
                                         // Clear previous content and add new customer info
                                         selectedCustomerInfo.innerHTML = '';
                                         selectedCustomerInfo.appendChild(customerNameEl);
@@ -914,7 +922,7 @@ if (isset($_GET['customer_id']) && !empty($_GET['customer_id'])) {
                                         // Add customer actions (change customer button)
                                         const customerActionsEl = document.createElement('div');
                                         customerActionsEl.className = 'customer-actions';
-                                        customerActionsEl.innerHTML = '<button type="button" id="clearCustomer" class="btn-link">Change Customer</button>';
+                                        customerActionsEl.innerHTML = '<button type="button" id="clearCustomer" class="btn btn-primary">Change Customer</button>';
                                         selectedCustomerInfo.appendChild(customerActionsEl);
 
                                         // Show customer info and hide system account message
