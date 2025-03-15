@@ -36,7 +36,7 @@ $metrics = [
     'occupied_rooms' => count($activeCustomers), // Since one customer occupies one room
     'available_rooms' => count($availableRooms),
     'pending_checkouts' => count($pendingCheckouts), // Customers departing within 2 days
-    'monthly_revenue' => 0 // Will calculate below
+    'monthly_revenue' => 0 
 ];
 
 // Calculate monthly revenue
@@ -49,8 +49,6 @@ $customerHistory = $customers->getCustomerHistory();
 foreach ($customerHistory as $history) {
     $departureDate = new DateTime($history['departure_datetime']);
     if ($departureDate->format('m') == $currentMonth && $departureDate->format('Y') == $currentYear) {
-        // Assuming you have a room_rate field in your customer history
-        // You might need to adjust this logic based on your actual database structure
         $customer = $customers->getCustomerById($history['id']);
         if ($customer) {
             $monthlyRevenue += $customer['total_amount'];
@@ -568,7 +566,7 @@ $current_time = date('h:i A');
             <div class="nav-section">
                 <div class="nav-section-title">Management</div>
                 <ul class="nav-links">
-                    <li><a href="views/manage_stock.php" class="nav-link"><i class="fas fa-boxes"></i>Inventory</a></li>
+                    <li><a href="views/view_stock.php" class="nav-link"><i class="fas fa-boxes"></i>Inventory</a></li>
                     <li><a href="views/add_income.php" class="nav-link"><i class="fas fa-money-bill-wave"></i>Revenue</a></li>
                     <li><a href="views/view_customer_history.php" class="nav-link"><i class="fas fa-history"></i>History</a></li>
                 </ul>

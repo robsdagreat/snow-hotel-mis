@@ -67,6 +67,25 @@ class Customers{
             ':mobile_number' => $mobileNumber
         ]);
     }
+
+    public function getTotalCustomers() {
+        $sql = "SELECT COUNT(*) as total FROM customers";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return (int)$result['total'];
+    }
+    
+    public function getPaginatedCustomers($limit, $offset) {
+        $sql = "SELECT c.*, r.room_number FROM customers c 
+                LEFT JOIN rooms r ON c.room_id = r.id 
+                ORDER BY c.id DESC LIMIT :limit OFFSET :offset";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
     
     public function updateCustomerHistory(
         $customerId, 
@@ -268,34 +287,60 @@ class Customers{
         }
     }
     
-    // Fetch customer history
-    public function getCustomerHistory() {
-        $sql = "
-            SELECT 
-                c.id, 
-                c.guest_name, 
-                r.room_number, 
-                c.arrival_datetime, 
-                c.departure_datetime 
-            FROM 
-                customers c
-            INNER JOIN 
-                rooms r ON c.room_id = r.id
-            WHERE 
-                c.status = 0
-            ORDER BY 
-                c.departure_datetime DESC
-        ";
-        try {
-            $stmt = $this->pdo->query($sql);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            die("Error fetching customer history: " . $e->getMessage());
-        }
+    // Add these methods to your Customers.php file
+
+public function getCustomerHistoryPaginated($offset, $limit) {
+    $sql = "
+        SELECT 
+            c.id, 
+            c.guest_name, 
+            r.room_number, 
+            c.arrival_datetime, 
+            c.departure_datetime 
+        FROM 
+            customers c
+        INNER JOIN 
+            rooms r ON c.room_id = r.id
+        WHERE 
+            c.status = 0
+        ORDER BY 
+            c.departure_datetime DESC
+        LIMIT :offset, :limit
+    ";
+    
+    try {
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        die("Error fetching paginated customer history: " . $e->getMessage());
     }
+}
+
+public function getTotalCustomerHistoryCount() {
+    $sql = "
+        SELECT 
+            COUNT(*) as total
+        FROM 
+            customers
+        WHERE 
+            status = 0
+    ";
+    
+    try {
+        $stmt = $this->pdo->query($sql);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return (int)$result['total'];
+    } catch (PDOException $e) {
+        die("Error counting customer history: " . $e->getMessage());
+    }
+}
     public function searchCustomer($term) {
         $sql = "
-            SELECT c.id, c.guest_name, r.room_number, c.arrival_datetime, c.departure_datetime
+            SELECT c.id, c.guest_name, r.room_number, c.arrival_datetime, c.departure_datetime, 
+                   c.email_address, c.mobile_number, c.room_id
             FROM customers c
             LEFT JOIN rooms r ON c.room_id = r.id
             WHERE c.guest_name LIKE :term 
@@ -306,6 +351,7 @@ class Customers{
         $stmt->execute([':term' => "%$term%"]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
 
     // Add this method to your Customers class
     public function getPendingCheckouts($days = 2) {

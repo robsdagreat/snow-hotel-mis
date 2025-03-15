@@ -6,316 +6,735 @@ if (!isset($_SESSION['user_id'])) {
     header('Location: ../views/login.php');
     exit;
 }
-include '../includes/navbar.php';
 require_once '../classes/Rooms.php';
 // Fetch available rooms
 $rooms = new Rooms();
 $availableRooms = $rooms->getAvailableRooms();
+
+// Set breadcrumb variables
+$breadcrumb_section = "Customers";
+$breadcrumb_section_url = "view_customers.php";
+$breadcrumb_page = "Add Customer";
+
+$today = date('F d, Y'); // Format: March 11, 2025
+$current_time = date('h:i A'); 
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>New Customer</title>
-    <link rel="stylesheet" href="../styles/navbar.css">
+    <title>Add Customer - Snow Hotel Management System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body {
-            font-family: Arial, sans-serif;
+        :root {
+            --primary: #5a5af1;
+            --primary-dark: #4747c2;
+            --primary-light: #8080ff;
+            --accent: #ff6b6b;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+            --dark: #333;
+            --light: #f8f9fa;
+            --gray: #6c757d;
+            --gray-light: #e9ecef;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+            --radius: 8px;
+        }
+
+        * {
             margin: 0;
             padding: 0;
-            background-color: #f4f4f9;
-            color: #333;
+            box-sizing: border-box;
         }
-        .container {
-            max-width: 600px;
-            margin: 50px auto;
-            padding: 20px;
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6fc;
+            color: var(--dark);
+            line-height: 1.6;
         }
-        h2 {
-            text-align: center;
-            color: #5a5af1;
-            margin-bottom: 20px;
+
+        .layout {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            min-height: 100vh;
         }
-        form {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        label {
-            font-weight: bold;
-        }
-        input, select, button {
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            font-size: 14px;
-        }
-        button {
-            background-color: #5a5af1;
+
+        /* Sidebar Styles */
+        .sidebar {
+            background: var(--primary);
             color: white;
-            font-weight: bold;
+            padding: 1.5rem;
+            position: fixed;
+            height: 100vh;
+            width: 260px;
+            z-index: 100;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 2.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo i {
+            font-size: 1.8rem;
+        }
+
+        .nav-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .nav-section-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.75rem;
+            opacity: 0.8;
+        }
+
+        .nav-links {
+            list-style: none;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius);
+            margin-bottom: 0.25rem;
+            text-decoration: none;
+            color: white;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-link.active {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .nav-link i {
+            margin-right: 0.75rem;
+            font-size: 1.1rem;
+            width: 1.5rem;
+            text-align: center;
+        }
+
+        /* Main Content Styles */
+        .main-content {
+            grid-column: 2;
+            padding: 1.5rem 2rem;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .page-title h1 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 0.25rem;
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            color: var(--gray);
+            font-size: 0.875rem;
+        }
+
+        .breadcrumb a {
+            color: var(--primary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .breadcrumb a:hover {
+            color: var(--primary-dark);
+            text-decoration: underline;
+        }
+
+        .breadcrumb span {
+            margin: 0 0.5rem;
+        }
+
+        .breadcrumb .time-display {
+            margin-left: auto;
+        }
+
+        .user-nav {
+            display: flex;
+            align-items: center;
+        }
+
+        .menu-toggle {
+            background: none;
+            border: none;
+            color: var(--dark);
+            font-size: 1.25rem;
+            cursor: pointer;
+            display: none;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 1rem;
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
             cursor: pointer;
         }
-        button:hover {
-            background-color: #4949c8;
+
+        .user-profile .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .user-profile .user-info {
+            line-height: 1.3;
+        }
+
+        .user-profile .user-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .user-profile .user-role {
+            font-size: 0.8rem;
+            color: var(--gray);
+        }
+
+        /* Form styles */
+        .form-container {
+            background-color: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .form-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: var(--dark);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--dark);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid #ccc;
+            border-radius: var(--radius);
+            font-size: 1rem;
+            color: var(--dark);
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background-color: #fff;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(90, 90, 241, 0.2);
+            outline: none;
+        }
+
+        .form-control.is-invalid {
+            border-color: var(--danger);
+        }
+
+        .invalid-feedback {
+            display: block;
+            color: var(--danger);
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+        }
+
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius);
+            font-size: 1rem;
+            font-weight: 500;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .btn-secondary {
+            background-color: var(--gray-light);
+            color: var(--dark);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--gray);
+            color: white;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: var(--radius);
+            margin-bottom: 1.5rem;
+        }
+
+        .alert-success {
+            background-color: rgba(76, 175, 80, 0.1);
+            border-left: 4px solid var(--success);
+            color: var(--success);
+        }
+
+        .alert-danger {
+            background-color: rgba(244, 67, 54, 0.1);
+            border-left: 4px solid var(--danger);
+            color: var(--danger);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        /* Footer Styles */
+        footer {
+            margin-top: 2rem;
+            text-align: center;
+            font-size: 0.875rem;
+            color: var(--gray);
+            padding: 1.5rem 0;
+            border-top: 1px solid var(--gray-light);
+        }
+
+        /* Media Queries for Responsiveness */
+        @media (max-width: 992px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                grid-column: 1;
+            }
+            
+            .menu-toggle {
+                display: block;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .top-bar {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+            
+            .user-nav {
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>New Customer</h2>
-        <form action="../controllers/customers_controller.php" method="POST">
-            <input type="hidden" name="action" value="add_customer">
-            <label for="guest_name">Guest Name:</label>
-            <input type="text" id="guest_name" name="guest_name" required>
-            <label for="nationality">Nationality:</label>
-            <select id="nationality" name="nationality" required>
-                <option value="" disabled selected>Select nationality</option>
-                <option value="Afghan">Afghan</option>
-                <option value="Albanian">Albanian</option>
-                <option value="Algerian">Algerian</option>
-                <option value="American">American</option>
-                <option value="Andorran">Andorran</option>
-                <option value="Angolan">Angolan</option>
-                <option value="Antiguans">Antiguans</option>
-                <option value="Argentinean">Argentinean</option>
-                <option value="Armenian">Armenian</option>
-                <option value="Australian">Australian</option>
-                <option value="Austrian">Austrian</option>
-                <option value="Azerbaijani">Azerbaijani</option>
-                <option value="Bahamian">Bahamian</option>
-                <option value="Bahraini">Bahraini</option>
-                <option value="Bangladeshi">Bangladeshi</option>
-                <option value="Barbadian">Barbadian</option>
-                <option value="Barbudans">Barbudans</option>
-                <option value="Batswana">Batswana</option>
-                <option value="Belarusian">Belarusian</option>
-                <option value="Belgian">Belgian</option>
-                <option value="Belizean">Belizean</option>
-                <option value="Beninese">Beninese</option>
-                <option value="Bhutanese">Bhutanese</option>
-                <option value="Bolivian">Bolivian</option>
-                <option value="Bosnian">Bosnian</option>
-                <option value="Brazilian">Brazilian</option>
-                <option value="British">British</option>
-                <option value="Bruneian">Bruneian</option>
-                <option value="Bulgarian">Bulgarian</option>
-                <option value="Burkinabe">Burkinabe</option>
-                <option value="Burmese">Burmese</option>
-                <option value="Burundian">Burundian</option>
-                <option value="Cambodian">Cambodian</option>
-                <option value="Cameroonian">Cameroonian</option>
-                <option value="Canadian">Canadian</option>
-                <option value="Cape Verdean">Cape Verdean</option>
-                <option value="Central African">Central African</option>
-                <option value="Chadian">Chadian</option>
-                <option value="Chilean">Chilean</option>
-                <option value="Chinese">Chinese</option>
-                <option value="Colombian">Colombian</option>
-                <option value="Comoran">Comoran</option>
-                <option value="Congolese">Congolese</option>
-                <option value="Costa Rican">Costa Rican</option>
-                <option value="Croatian">Croatian</option>
-                <option value="Cuban">Cuban</option>
-                <option value="Cypriot">Cypriot</option>
-                <option value="Czech">Czech</option>
-                <option value="Danish">Danish</option>
-                <option value="Djibouti">Djibouti</option>
-                <option value="Dominican">Dominican</option>
-                <option value="Dutch">Dutch</option>
-                <option value="East Timorese">East Timorese</option>
-                <option value="Ecuadorean">Ecuadorean</option>
-                <option value="Egyptian">Egyptian</option>
-                <option value="Emirian">Emirian</option>
-                <option value="Equatorial Guinean">Equatorial Guinean</option>
-                <option value="Eritrean">Eritrean</option>
-                <option value="Estonian">Estonian</option>
-                <option value="Ethiopian">Ethiopian</option>
-                <option value="Fijian">Fijian</option>
-                <option value="Filipino">Filipino</option>
-                <option value="Finnish">Finnish</option>
-                <option value="French">French</option>
-                <option value="Gabonese">Gabonese</option>
-                <option value="Gambian">Gambian</option>
-                <option value="Georgian">Georgian</option>
-                <option value="German">German</option>
-                <option value="Ghanaian">Ghanaian</option>
-                <option value="Greek">Greek</option>
-                <option value="Grenadian">Grenadian</option>
-                <option value="Guatemalan">Guatemalan</option>
-                <option value="Guinea-Bissauan">Guinea-Bissauan</option>
-                <option value="Guinean">Guinean</option>
-                <option value="Guyanese">Guyanese</option>
-                <option value="Haitian">Haitian</option>
-                <option value="Herzegovinian">Herzegovinian</option>
-                <option value="Honduran">Honduran</option>
-                <option value="Hungarian">Hungarian</option>
-                <option value="I-Kiribati">I-Kiribati</option>
-                <option value="Icelander">Icelander</option>
-                <option value="Indian">Indian</option>
-                <option value="Indonesian">Indonesian</option>
-                <option value="Iranian">Iranian</option>
-                <option value="Iraqi">Iraqi</option>
-                <option value="Irish">Irish</option>
-                <option value="Israeli">Israeli</option>
-                <option value="Italian">Italian</option>
-                <option value="Ivorian">Ivorian</option>
-                <option value="Jamaican">Jamaican</option>
-                <option value="Japanese">Japanese</option>
-                <option value="Jordanian">Jordanian</option>
-                <option value="Kazakhstani">Kazakhstani</option>
-                <option value="Kenyan">Kenyan</option>
-                <option value="Kittian and Nevisian">Kittian and Nevisian</option>
-                <option value="Kuwaiti">Kuwaiti</option>
-                <option value="Kyrgyz">Kyrgyz</option>
-                <option value="Laotian">Laotian</option>
-                <option value="Latvian">Latvian</option>
-                <option value="Lebanese">Lebanese</option>
-                <option value="Liberian">Liberian</option>
-                <option value="Libyan">Libyan</option>
-                <option value="Liechtensteiner">Liechtensteiner</option>
-                <option value="Lithuanian">Lithuanian</option>
-                <option value="Luxembourger">Luxembourger</option>
-                <option value="Macedonian">Macedonian</option>
-                <option value="Malagasy">Malagasy</option>
-                <option value="Malawian">Malawian</option>
-                <option value="Malaysian">Malaysian</option>
-                <option value="Maldivian">Maldivian</option>
-                <option value="Malian">Malian</option>
-                <option value="Maltese">Maltese</option>
-                <option value="Marshallese">Marshallese</option>
-                <option value="Mauritanian">Mauritanian</option>
-                <option value="Mauritian">Mauritian</option>
-                <option value="Mexican">Mexican</option>
-                <option value="Micronesian">Micronesian</option>
-                <option value="Moldovan">Moldovan</option>
-                <option value="Monacan">Monacan</option>
-                <option value="Mongolian">Mongolian</option>
-                <option value="Moroccan">Moroccan</option>
-                <option value="Mosotho">Mosotho</option>
-                <option value="Motswana">Motswana</option>
-                <option value="Mozambican">Mozambican</option>
-                <option value="Namibian">Namibian</option>
-                <option value="Nauruan">Nauruan</option>
-                <option value="Nepalese">Nepalese</option>
-                <option value="New Zealander">New Zealander</option>
-                <option value="Ni-Vanuatu">Ni-Vanuatu</option>
-                <option value="Nicaraguan">Nicaraguan</option>
-                <option value="Nigerian">Nigerian</option>
-                <option value="Nigerien">Nigerien</option>
-                <option value="North Korean">North Korean</option>
-                <option value="Norwegian">Norwegian</option>
-                <option value="Omani">Omani</option>
-                <option value="Pakistani">Pakistani</option>
-                <option value="Palauan">Palauan</option>
-                <option value="Panamanian">Panamanian</option>
-                <option value="Papua New Guinean">Papua New Guinean</option>
-                <option value="Paraguayan">Paraguayan</option>
-                <option value="Peruvian">Peruvian</option>
-                <option value="Polish">Polish</option>
-                <option value="Portuguese">Portuguese</option>
-                <option value="Qatari">Qatari</option>
-                <option value="Romanian">Romanian</option>
-                <option value="Russian">Russian</option>
-                <option value="Rwandan">Rwandan</option>
-                <option value="Saint Lucian">Saint Lucian</option>
-                <option value="Salvadoran">Salvadoran</option>
-                <option value="Samoan">Samoan</option>
-                <option value="San Marinese">San Marinese</option>
-                <option value="Sao Tomean">Sao Tomean</option>
-                <option value="Saudi">Saudi</option>
-                <option value="Scottish">Scottish</option>
-                <option value="Senegalese">Senegalese</option>
-                <option value="Serbian">Serbian</option>
-                <option value="Seychellois">Seychellois</option>
-                <option value="Sierra Leonean">Sierra Leonean</option>
-                <option value="Singaporean">Singaporean</option>
-                <option value="Slovakian">Slovakian</option>
-                <option value="Slovenian">Slovenian</option>
-                <option value="Solomon Islander">Solomon Islander</option>
-                <option value="Somali">Somali</option>
-                <option value="South African">South African</option>
-                <option value="South Korean">South Korean</option>
-                <option value="Spanish">Spanish</option>
-                <option value="Sri Lankan">Sri Lankan</option>
-                <option value="Sudanese">Sudanese</option>
-                <option value="Surinamer">Surinamer</option>
-                <option value="Swazi">Swazi</option>
-                <option value="Swedish">Swedish</option>
-                <option value="Swiss">Swiss</option>
-                <option value="Syrian">Syrian</option>
-                <option value="Taiwanese">Taiwanese</option>
-                <option value="Tajik">Tajik</option>
-                <option value="Tanzanian">Tanzanian</option>
-                <option value="Thai">Thai</option>
-                <option value="Togolese">Togolese</option>
-                <option value="Tongan">Tongan</option>
-                <option value="Trinidadian or Tobagonian">Trinidadian or Tobagonian</option>
-                <option value="Tunisian">Tunisian</option>
-                <option value="Turkish">Turkish</option>
-                <option value="Tuvaluan">Tuvaluan</option>
-                <option value="Ugandan">Ugandan</option>
-                <option value="Ukrainian">Ukrainian</option>
-                <option value="Uruguayan">Uruguayan</option>
-                <option value="Uzbekistani">Uzbekistani</option>
-                <option value="Venezuelan">Venezuelan</option>
-                <option value="Vietnamese">Vietnamese</option>
-                <option value="Welsh">Welsh</option>
-                <option value="Yemenite">Yemenite</option>
-                <option value="Zambian">Zambian</option>
-                <option value="Zimbabwean">Zimbabwean</option>
-            </select>
-            <label for="id_passport">ID/Passport:</label>
-            <input type="text" id="id_passport" name="id_passport">
-            <label for="arrival_datetime">Arrival Date and Time:</label>
-            <input type="datetime-local" id="arrival_datetime" name="arrival_datetime" required onchange="calculateTotalAmount()">
-            <label for="departure_datetime">Departure Date and Time:</label>
-            <input type="datetime-local" id="departure_datetime" name="departure_datetime" required onchange="calculateTotalAmount()">
-            <label for="room_number">Room Number:</label>
-            <select id="room_number" name="room_number" required onchange="updateRoomRate()">
-                <option value="">-- Select Room --</option>
-                <?php foreach ($availableRooms as $room): ?>
-                    <option 
-                        value="<?= htmlspecialchars($room['id']) ?>" 
-                        data-room-rate="<?= htmlspecialchars($room['room_rate']) ?>">
-                        <?= htmlspecialchars($room['room_number']) ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-            <label for="room_rate">Room Rate:</label>
-            <input type="text" id="room_rate" name="room_rate" readonly>
-            <label for="discount">Discount %:</label>
-            <input type="type" id="discount" name="discount" value="0" onchange="applyDiscount()">
-            <label for="discounted_room_rate">Discounted Room Rate:</label>
-            <input type="text" id="discounted_room_rate" name="discounted_room_rate" readonly>
-            <label for="num_persons">Number of Persons:</label>
-            <input type="number" min="1" id="num_persons" name="num_persons" value="1" required>
-            <label for="num_children">Number of Children:</label>
-            <input type="number" min="0" id="num_children" name="num_children" value="0">
-            <label for="total_amount">Total Amount:</label>
-            <input type="text" id="total_amount" name="total_amount" readonly>
-            <label for="mode_of_payment">Mode of Payment:</label>
-            <select id="mode_of_payment" name="mode_of_payment" required>
-                <option value="" disabled selected>Select payment mode</option>
-                <option value="Cash">Cash</option>
-                <option value="Momo">Momo</option>
-                <option value="Credit Card">Credit Card</option>
-                <option value="Bank Transfer">Bank Transfer</option>
-            </select>
-            <label for="company_agency">Company/Travel Agency:</label>
-            <input type="text" id="company_agency" name="company_agency">
-            <label for="email_address">Email Address:</label>
-            <input type="email" id="email_address" name="email_address">
-            <label for="mobile_number">Mobile Number:</label>
-            <input type="text" id="mobile_number" name="mobile_number">
-            <button type="submit">Add Customer</button>
-        </form>
+    <div class="layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-snowflake"></i>
+                    <span>Snow Hotel</span>
+                </div>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Main</div>
+                <ul class="nav-links">
+                    <li><a href="../index.php" class="nav-link"><i class="fas fa-th-large"></i>Dashboard</a></li>
+                    <li><a href="view_customers.php" class="nav-link active"><i class="fas fa-users"></i>Customers</a></li>
+                    <li><a href="view_services.php" class="nav-link"><i class="fas fa-concierge-bell"></i>Services</a></li>
+                    <li><a href="view_consumables.php" class="nav-link"><i class="fas fa-shopping-basket"></i>Consumables</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Management</div>
+                <ul class="nav-links">
+                    <li><a href="view_stock.php" class="nav-link"><i class="fas fa-boxes"></i>Inventory</a></li>
+                    <li><a href="view_income.php" class="nav-link"><i class="fas fa-money-bill-wave"></i>Revenue</a></li>
+                    <li><a href="view_customer_history.php" class="nav-link"><i class="fas fa-history"></i>History</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section" style="margin-top: auto;">
+                <ul class="nav-links">
+                    <li><a href="../controllers/logout.php" class="nav-link"><i class="fas fa-sign-out-alt"></i>Logout</a></li>
+                </ul>
+            </div>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="top-bar">
+                <button id="menuToggle" class="menu-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                
+                <div class="page-title">
+                    <h1>Add New Customer</h1>
+                    <div class="breadcrumb">
+                        <a href="../index.php">Dashboard</a>
+                        <span>&gt;</span>
+                        <a href="<?= $breadcrumb_section_url ?>"><?= $breadcrumb_section ?></a>
+                        <span>&gt;</span>
+                        <span><?= $breadcrumb_page ?></span>
+                        <span class="time-display" style="margin-left: auto;"><?= $today ?> | <?= $current_time ?></span>
+                    </div>
+                </div>
+                
+                <div class="user-nav">
+                    <div class="user-profile" id="userProfileButton">
+                        <div class="avatar">
+                            <?= strtoupper(substr($_SESSION['username'] ?? 'U', 0, 1)) ?>
+                        </div>
+                        <div class="user-info">
+                            <div class="user-name"><?= htmlspecialchars($_SESSION['username'] ?? 'User') ?></div>
+                            <div class="user-role">Administrator</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Form Container -->
+            <div class="form-container">
+                <h2 class="form-title">Customer Information</h2>
+                
+                <?php if (isset($_SESSION['success_message'])): ?>
+                <div class="alert alert-success">
+                    <?= $_SESSION['success_message'] ?>
+                    <?php unset($_SESSION['success_message']); ?>
+                </div>
+                <?php endif; ?>
+                
+                <?php if (isset($_SESSION['error_message'])): ?>
+                <div class="alert alert-danger">
+                    <?= $_SESSION['error_message'] ?>
+                    <?php unset($_SESSION['error_message']); ?>
+                </div>
+                <?php endif; ?>
+                
+                <form action="../controllers/customers_controller.php" method="POST">
+                    <input type="hidden" name="action" value="add_customer">
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="guest_name" class="form-label">Guest Name:</label>
+                            <input type="text" id="guest_name" name="guest_name" class="form-control" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="nationality" class="form-label">Nationality:</label>
+                            <select id="nationality" name="nationality" class="form-control" required>
+                                <option value="" disabled selected>Loading countries...</option>
+                            </select>
+                            <div id="nationality-loading" style="display: none; font-size: 0.8rem; color: var(--gray); margin-top: 0.25rem;">
+                                <i class="fas fa-spinner fa-spin"></i> Loading countries...
+                            </div>
+                            <div id="nationality-error" style="display: none; font-size: 0.8rem; color: var(--danger); margin-top: 0.25rem;">
+                                Failed to load countries. Please refresh the page or select manually.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="id_passport" class="form-label">ID/Passport:</label>
+                            <input type="text" id="id_passport" name="id_passport" class="form-control">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="mobile_number" class="form-label">Mobile Number:</label>
+                            <input type="text" id="mobile_number" name="mobile_number" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="email_address" class="form-label">Email Address:</label>
+                            <input type="email" id="email_address" name="email_address" class="form-control">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="company_agency" class="form-label">Company/Travel Agency:</label>
+                            <input type="text" id="company_agency" name="company_agency" class="form-control">
+                        </div>
+                    </div>
+
+                    <h2 class="form-title" style="margin-top: 1.5rem;">Booking Details</h2>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="arrival_datetime" class="form-label">Arrival Date and Time:</label>
+                            <input type="datetime-local" id="arrival_datetime" name="arrival_datetime" class="form-control" required onchange="calculateTotalAmount()">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="departure_datetime" class="form-label">Departure Date and Time:</label>
+                            <input type="datetime-local" id="departure_datetime" name="departure_datetime" class="form-control" required onchange="calculateTotalAmount()">
+                        </div>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="room_number" class="form-label">Room Number:</label>
+                            <select id="room_number" name="room_number" class="form-control" required onchange="updateRoomRate()">
+                                <option value="">-- Select Room --</option>
+                                <?php foreach ($availableRooms as $room): ?>
+                                    <option 
+                                        value="<?= htmlspecialchars($room['id']) ?>" 
+                                        data-room-rate="<?= htmlspecialchars($room['room_rate']) ?>">
+                                        <?= htmlspecialchars($room['room_number']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="room_rate" class="form-label">Room Rate:</label>
+                            <input type="text" id="room_rate" name="room_rate" class="form-control" readonly>
+                        </div>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="discount" class="form-label">Discount %:</label>
+                            <input type="number" id="discount" name="discount" value="0" class="form-control" min="0" max="100" onchange="applyDiscount()">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="discounted_room_rate" class="form-label">Discounted Room Rate:</label>
+                            <input type="text" id="discounted_room_rate" name="discounted_room_rate" class="form-control" readonly>
+                        </div>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="num_persons" class="form-label">Number of Persons:</label>
+                            <input type="number" min="1" id="num_persons" name="num_persons" value="1" class="form-control" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="num_children" class="form-label">Number of Children:</label>
+                            <input type="number" min="0" id="num_children" name="num_children" value="0" class="form-control">
+                        </div>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="total_amount" class="form-label">Total Amount:</label>
+                            <input type="text" id="total_amount" name="total_amount" class="form-control" readonly>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="mode_of_payment" class="form-label">Mode of Payment:</label>
+                            <select id="mode_of_payment" name="mode_of_payment" class="form-control" required>
+                                <option value="" disabled selected>Select payment mode</option>
+                                <option value="Cash">Cash</option>
+                                <option value="Momo">Momo</option>
+                                <option value="Credit Card">Credit Card</option>
+                                <option value="Bank Transfer">Bank Transfer</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <a href="view_customers.php" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Add Customer</button>
+                    </div>
+                </form>
+            </div>
+            
+            <footer>
+                &copy; <?= date('Y') ?> Snow Hotel Management System. All rights reserved.
+            </footer>
+        </main>
     </div>
+    
     <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Mobile menu toggle
+            const menuToggle = document.getElementById('menuToggle');
+            const sidebar = document.querySelector('.sidebar');
+            const mainContent = document.querySelector('.main-content');
+            
+            if (menuToggle) {
+                menuToggle.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation(); // Prevent event from bubbling up
+                    sidebar.classList.toggle('active');
+                    
+                    // Update toggle icon based on sidebar state
+                    if (sidebar.classList.contains('active')) {
+                        menuToggle.innerHTML = '<i class="fas fa-times"></i>'; // Change to X icon when open
+                    } else {
+                        menuToggle.innerHTML = '<i class="fas fa-bars"></i>'; // Change back to bars when closed
+                    }
+                });
+            }
+            
+            // Close sidebar when clicking on main content (for mobile)
+            if (mainContent) {
+                mainContent.addEventListener('click', function() {
+                    if (window.innerWidth <= 992 && sidebar.classList.contains('active')) {
+                        sidebar.classList.remove('active');
+                        if (menuToggle) {
+                            menuToggle.innerHTML = '<i class="fas fa-bars"></i>';
+                        }
+                    }
+                });
+            }
+        });
+
+        // Fetch countries from API and populate the nationality dropdown
+        document.addEventListener('DOMContentLoaded', function() {
+            const nationalitySelect = document.getElementById('nationality');
+            const loadingIndicator = document.getElementById('nationality-loading');
+            const errorMessage = document.getElementById('nationality-error');
+            
+            // Show loading indicator
+            loadingIndicator.style.display = 'block';
+            
+            // Fetch countries from REST Countries API
+            fetch('https://restcountries.com/v3.1/all')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(countries => {
+                    // Clear loading option
+                    nationalitySelect.innerHTML = '<option value="" disabled selected>Select nationality</option>';
+                    
+                    // Sort countries by name
+                    countries.sort((a, b) => {
+                        return a.name.common.localeCompare(b.name.common);
+                    });
+                    
+                    // Add each country to the dropdown
+                    countries.forEach(country => {
+                        const option = document.createElement('option');
+                        option.value = country.demonym || country.name.common;
+                        option.textContent = country.demonym || country.name.common;
+                        nationalitySelect.appendChild(option);
+                    });
+                    
+                    // Hide loading indicator
+                    loadingIndicator.style.display = 'none';
+                })
+                .catch(error => {
+                    console.error('Error fetching countries:', error);
+                    
+                    // Show error message
+                    errorMessage.style.display = 'block';
+                    loadingIndicator.style.display = 'none';
+                    
+                    // Provide a fallback with common nationalities
+                    nationalitySelect.innerHTML = `
+                        <option value="" disabled selected>Select nationality</option>
+                        <option value="Afghan">Afghan</option>
+                        <option value="Albanian">Albanian</option>
+                        <option value="American">American</option>
+                        <option value="British">British</option>
+                        <option value="Canadian">Canadian</option>
+                        <option value="Chinese">Chinese</option>
+                        <option value="French">French</option>
+                        <option value="German">German</option>
+                        <option value="Indian">Indian</option>
+                        <option value="Japanese">Japanese</option>
+                        <option value="Nigerian">Nigerian</option>
+                        <option value="Russian">Russian</option>
+                        <option value="Saudi">Saudi</option>
+                        <option value="South African">South African</option>
+                        <option value="Spanish">Spanish</option>
+                    `;
+                });
+        });
+        
         function updateRoomRate() {
             const roomSelect = document.getElementById('room_number');
             const selectedOption = roomSelect.options[roomSelect.selectedIndex];
@@ -329,18 +748,18 @@ $availableRooms = $rooms->getAvailableRooms();
             const roomRate = parseFloat(document.getElementById('room_rate').value) || 0;
             const discountInput = document.getElementById('discount');
             let discount = parseFloat(discountInput.value) || 0;
-        
+            
             // Validate the discount value
             if (discount < 0 || discount > 100) {
                 alert("Discount must be between 0 and 100.");
                 discountInput.value = 0; // Reset to 0 if invalid
                 discount = 0;
             }
-        
+            
             // Calculate discounted rate
             const discountedRate = roomRate - (roomRate * discount / 100);
             document.getElementById('discounted_room_rate').value = discountedRate.toFixed(2);
-        
+            
             // Recalculate total amount
             calculateTotalAmount();
         }

@@ -9,7 +9,19 @@ if (!isset($_SESSION['user_id'])) {
 
 require_once '../classes/Customers.php';
 $customer = new Customers();
-$data = $customer->getAllCustomers();
+
+// Pagination settings
+$records_per_page = 15;
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = max(1, $page); // Ensure page is at least 1
+$offset = ($page - 1) * $records_per_page;
+
+// Get total number of customers for pagination
+$total_customers = $customer->getTotalCustomers();
+$total_pages = ceil($total_customers / $records_per_page);
+
+// Get paginated data
+$data = $customer->getPaginatedCustomers($records_per_page, $offset);
 
 // Set breadcrumb variables
 $breadcrumb_section = "Customers";
@@ -355,7 +367,36 @@ $current_time = date('h:i A');
 
         .add-new-link {
             display: inline-block;
-            margin-top: 1.5rem;
+            /* margin-top: 1.5rem; */
+        }
+
+        /* Pagination Styles */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin-top: 2rem;
+            gap: 0.5rem;
+        }
+
+        .pagination a, .pagination span {
+            display: inline-block;
+            padding: 0.5rem 0.75rem;
+            border-radius: var(--radius);
+            text-decoration: none;
+            transition: all 0.2s;
+            color: var(--dark);
+            font-weight: 500;
+            background-color: white;
+            box-shadow: var(--shadow);
+        }
+
+        .pagination a:hover {
+            background-color: var(--gray-light);
+        }
+
+        .pagination span.current {
+            background-color: var(--primary);
+            color: white;
         }
 
         /* Footer Styles */
@@ -412,6 +453,10 @@ $current_time = date('h:i A');
             .table-responsive {
                 overflow-x: auto;
             }
+            
+            .pagination {
+                flex-wrap: wrap;
+            }
         }
     </style>
 </head>
@@ -439,8 +484,8 @@ $current_time = date('h:i A');
             <div class="nav-section">
                 <div class="nav-section-title">Management</div>
                 <ul class="nav-links">
-                    <li><a href="manage_stock.php" class="nav-link"><i class="fas fa-boxes"></i>Inventory</a></li>
-                    <li><a href="view_income.php" class="nav-link"><i class="fas fa-money-bill-wave"></i>Revenue</a></li>
+                    <li><a href="view_stock.php" class="nav-link"><i class="fas fa-boxes"></i>Inventory</a></li>
+                    <li><a href="add_income.php" class="nav-link"><i class="fas fa-money-bill-wave"></i>Revenue</a></li>
                     <li><a href="view_customer_history.php" class="nav-link"><i class="fas fa-history"></i>History</a></li>
                 </ul>
             </div>
@@ -470,6 +515,9 @@ $current_time = date('h:i A');
                         <span class="time-display" style="margin-left: auto;"><?= $today ?> | <?= $current_time ?></span>
                     </div>
                 </div>
+                <div class="add-new-link">
+                    <a href="add_customer.php" class="btn btn-primary">Add New Customer</a>
+                </div>
                 
                 <div class="user-nav">
                     <div class="user-profile" id="userProfileButton">
@@ -486,7 +534,7 @@ $current_time = date('h:i A');
             
             <!-- Table Container -->
             <div class="table-container">
-                <h2 class="table-title">All Customers</h2>
+                <h2 class="table-title">All Customers (<?= $total_customers ?> total)</h2>
                 
                 <?php if (empty($data)): ?>
                     <div class="no-data-message">
@@ -528,6 +576,51 @@ $current_time = date('h:i A');
                             </tbody>
                         </table>
                     </div>
+                    
+                    <!-- Pagination -->
+                    <?php if ($total_pages > 1): ?>
+                        <div class="pagination">
+                            <?php if ($page > 1): ?>
+                                <a href="?page=1" title="First page"><i class="fas fa-angle-double-left"></i></a>
+                                <a href="?page=<?= $page - 1 ?>" title="Previous page"><i class="fas fa-angle-left"></i></a>
+                            <?php endif; ?>
+                            
+                            <?php
+                            $start_page = max(1, $page - 2);
+                            $end_page = min($total_pages, $page + 2);
+                            
+                            // Always show first page
+                            if ($start_page > 1) {
+                                echo '<a href="?page=1">1</a>';
+                                if ($start_page > 2) {
+                                    echo '<span>...</span>';
+                                }
+                            }
+                            
+                            // Display page links
+                            for ($i = $start_page; $i <= $end_page; $i++) {
+                                if ($i == $page) {
+                                    echo '<span class="current">' . $i . '</span>';
+                                } else {
+                                    echo '<a href="?page=' . $i . '">' . $i . '</a>';
+                                }
+                            }
+                            
+                            // Always show last page
+                            if ($end_page < $total_pages) {
+                                if ($end_page < $total_pages - 1) {
+                                    echo '<span>...</span>';
+                                }
+                                echo '<a href="?page=' . $total_pages . '">' . $total_pages . '</a>';
+                            }
+                            ?>
+                            
+                            <?php if ($page < $total_pages): ?>
+                                <a href="?page=<?= $page + 1 ?>" title="Next page"><i class="fas fa-angle-right"></i></a>
+                                <a href="?page=<?= $total_pages ?>" title="Last page"><i class="fas fa-angle-double-right"></i></a>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
                 <?php endif; ?>
                 
                 <div class="add-new-link">

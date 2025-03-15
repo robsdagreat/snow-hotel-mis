@@ -2,7 +2,7 @@
 class Database {
     private $host = 'localhost';
     private $user = 'benax_snowhotel_root';
-    private $password = 'Y@p,oBp;Y]$#';
+    private $password = 'admin@12';
     private $dbname = 'benax_snowhotel';
     private $charset = 'utf8mb4';
     private $pdo;
