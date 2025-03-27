@@ -8,27 +8,60 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once '../classes/Stock.php';
+require_once '../classes/Consumables.php';
+
 $stock = new Stock();
-$current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-$items_per_page = 15;
+$consumable = new Consumables();
 
-// Change this to properly extract data and pagination info
-$stock_data = $stock->getStock($current_page, $items_per_page);
-$data = $stock_data['items'] ?? []; // Explicitly set $data from returned items
-$total_pages = $stock_data['total_pages'] ?? 0;
-$total_items = $stock_data['total_items'] ?? 0;
+// Handle form submission
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $new_consumable_name = isset($_POST['new_consumable_name']) ? trim($_POST['new_consumable_name']) : '';
+    $quantity = isset($_POST['quantity']) ? floatval($_POST['quantity']) : 0;
+    $unit_price = isset($_POST['unit_price']) ? floatval($_POST['unit_price']) : 0;
+    
+    // Validate inputs
+    $errors = [];
+    if (empty($new_consumable_name)) {
+        $errors[] = "Please enter a consumable item name.";
+    }
+    if ($quantity < 0) {
+        $errors[] = "Quantity cannot be negative.";
+    }
+    if ($unit_price < 0) {
+        $errors[] = "Unit price cannot be negative.";
+    }
+    
+    if (empty($errors)) {
+        try {
+            // First, create a new consumable item
+            $new_consumable_data = [
+                'item' => $new_consumable_name,
+                'service' => 4, // Default service ID, adjust as needed
+                'unit' => 'Kilogram (kg)', // Default unit, adjust as needed
+                'unit_price' => $unit_price
+            ];
+            $new_consumable_id = $consumable->addConsumable($new_consumable_data);
+            
+            // Then add the stock item using the new consumable ID
+            $result = $stock->addNewStockItem($new_consumable_id, $quantity, $unit_price);
+            
+            if ($result) {
+                $_SESSION['success_message'] = "New stock item added successfully.";
+                header('Location: view_stock.php');
+                exit;
+            } else {
+                $errors[] = "Failed to add stock item. Please try again.";
+            }
+        } catch (Exception $e) {
+            $errors[] = "An error occurred: " . $e->getMessage();
+        }
+    }
+}
 
-echo "<!-- Debug Info 
-Total Items: $total_items
-Total Pages: $total_pages
-Current Page: $current_page
-Number of Items: " . count($data) . "
--->";
-
-// Rest of the code remains the same as in the original file
+// Set breadcrumb variables
 $breadcrumb_section = "Inventory";
-$breadcrumb_section_url = "manage_stock.php";
-$breadcrumb_page = "Current Stock";
+$breadcrumb_section_url = "view_stock.php";
+$breadcrumb_page = "Add New Item";
 
 $today = date('F d, Y');
 $current_time = date('h:i A');
@@ -38,9 +71,10 @@ $current_time = date('h:i A');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Current Stock - Snow Hotel Management System</title>
+    <title>Add New Item - Snow Hotel Management System</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
+        /* Inherit all CSS styles from view_service.php */
         :root {
             --primary: #5a5af1;
             --primary-dark: #4747c2;
@@ -252,53 +286,61 @@ $current_time = date('h:i A');
             color: var(--gray);
         }
 
-        /* Table Container */
-        .table-container {
+        /* Form Container */
+        .form-container {
             background-color: white;
             border-radius: var(--radius);
             box-shadow: var(--shadow);
             padding: 2rem;
             margin-bottom: 2rem;
-            overflow: hidden;
         }
 
-        .table-title {
+        .form-title {
             font-size: 1.25rem;
             font-weight: 600;
             margin-bottom: 1.5rem;
             color: var(--dark);
         }
 
-        table {
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-control {
             width: 100%;
-            border-collapse: collapse;
-            margin-top: 1rem;
-        }
-
-        thead th {
-            background-color: var(--primary);
-            color: white;
             padding: 0.75rem 1rem;
-            text-align: left;
-            font-weight: 600;
+            border: 1px solid var(--gray-light);
+            border-radius: var(--radius);
+            font-size: 1rem;
+            transition: border-color 0.3s;
         }
 
-        tbody tr:nth-child(even) {
-            background-color: var(--light);
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(90, 90, 241, 0.1);
         }
 
-        tbody tr:hover {
-            background-color: var(--gray-light);
+        select.form-control {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236c757d' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 16px 12px;
+            padding-right: 2.5rem;
         }
 
-        td {
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--gray-light);
-        }
-
-        .actions {
+        .form-actions {
             display: flex;
-            gap: 0.5rem;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 2rem;
         }
 
         .btn {
@@ -313,11 +355,6 @@ $current_time = date('h:i A');
             display: inline-block;
         }
 
-        .btn-sm {
-            padding: 0.35rem 0.75rem;
-            font-size: 0.85rem;
-        }
-
         .btn-primary {
             background-color: var(--primary);
             color: white;
@@ -327,43 +364,25 @@ $current_time = date('h:i A');
             background-color: var(--primary-dark);
         }
 
-        .btn-success {
-            background-color: var(--success);
-            color: white;
+        .btn-secondary {
+            background-color: var(--gray-light);
+            color: var(--dark);
         }
 
-        .btn-success:hover {
-            background-color: #3d8b40;
+        .btn-secondary:hover {
+            background-color: #d1d7e0;
         }
 
-        .btn-danger {
-            background-color: var(--danger);
-            color: white;
+        .alert {
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            border-radius: var(--radius);
         }
 
-        .btn-danger:hover {
-            background-color: #d32f2f;
-        }
-
-        .btn-warning {
-            background-color: var(--warning);
-            color: white;
-        }
-
-        .btn-warning:hover {
-            background-color: #e68a00;
-        }
-
-        .no-data-message {
-            padding: 1.5rem;
-            text-align: center;
-            color: var(--gray);
-            font-style: italic;
-        }
-
-        .add-new-link {
-            display: inline-block;
-            margin-top: 1.5rem;
+        .alert-danger {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
         }
 
         /* Footer Styles */
@@ -417,8 +436,12 @@ $current_time = date('h:i A');
                 justify-content: space-between;
             }
             
-            .table-responsive {
-                overflow-x: auto;
+            .form-actions {
+                flex-direction: column;
+            }
+            
+            .form-actions .btn {
+                width: 100%;
             }
         }
     </style>
@@ -468,7 +491,7 @@ $current_time = date('h:i A');
                 </button>
                 
                 <div class="page-title">
-                    <h1>Current Stock</h1>
+                    <h1>Add New Stock Item</h1>
                     <div class="breadcrumb">
                         <a href="../index.php">Dashboard</a>
                         <span>&gt;</span>
@@ -492,150 +515,117 @@ $current_time = date('h:i A');
                 </div>
             </div>
             
-            <!-- Table Container -->
-            <div class="table-container">
-                <h2 class="table-title">Inventory Stock</h2>
+            <!-- Form Container -->
+            <div class="form-container">
+                <h2 class="form-title">Add New Inventory Item</h2>
                 
-                <?php if (empty($data)): ?>
-                    <div class="no-data-message">
-                        <p>No stock data available. Get started by adding consumables to your inventory.</p>
+                <?php if (!empty($errors)): ?>
+                    <div class="alert alert-danger">
+                        <?php foreach ($errors as $error): ?>
+                            <p><?= htmlspecialchars($error) ?></p>
+                        <?php endforeach; ?>
                     </div>
-                <?php else: ?>
-                    <div class="table-responsive">
-                        <table>
-                            <thead>
-                                <tr>
-                                <th>ID</th>
-                                <th>Item</th>
-                                <th>Quantity</th>
-                                <th>Unit</th>
-                                <th>Total value</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-    <?php foreach ($data as $row): ?>
-        <tr>
-            <td><?= htmlspecialchars($row['id']) ?></td>
-            <td><?= htmlspecialchars($row['item']) ?></td>
-            <td><?= htmlspecialchars($row['quantity']) ?></td>
-            <td><?= htmlspecialchars($row['unit_price']) ?></td>
-            <td><?= htmlspecialchars($row['total_value']) ?></td>
-            <td>
-                <?php 
-                $threshold = 10; // Set a default threshold value
-                if ($row['quantity'] <= $threshold): ?>
-                    <span style="color: var(--danger); font-weight: bold;">Low Stock</span>
-                <?php else: ?>
-                    <span style="color: var(--success);">In Stock</span>
                 <?php endif; ?>
-            </td>
-            <td>
-                <div class="actions">
-                    <a href="update_stock.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-success">Update</a>
-                    <a href="view_stock_history.php?id=<?= $row['consumable_id'] ?>" class="btn btn-sm btn-primary">History</a>
-                </div>
-            </td>
-        </tr>
-    <?php endforeach; ?>
-</tbody>
- </table>
- </div> <!-- Pagination Navigation -->
-            <div class="pagination" style="margin-top: 1rem; display: flex; justify-content: center; align-items: center; gap: 0.5rem;">
-                <?php if ($current_page > 1): ?>
-                    <a href="?page=<?= $current_page - 1 ?>" class="btn btn-sm btn-primary">Previous</a>
-                <?php endif; ?>
-
-                <?php 
-                // Smart page number display
-                $max_pages_to_show = 5;
-                $start_page = max(1, min($current_page - floor($max_pages_to_show / 2), $total_pages - $max_pages_to_show + 1));
-                $end_page = min($start_page + $max_pages_to_show - 1, $total_pages);
-
-                // Show first page if not in range
-                if ($start_page > 1) {
-                    echo '<a href="?page=1" class="btn btn-sm btn-primary">1</a>';
-                    if ($start_page > 2) {
-                        echo '<span class="btn btn-sm">...</span>';
-                    }
-                }
-
-                for ($i = $start_page; $i <= $end_page; $i++): 
-                    $active_class = ($i == $current_page) ? 'btn-success' : 'btn-primary';
-                ?>
-                    <a href="?page=<?= $i ?>" class="btn btn-sm <?= $active_class ?>"><?= $i ?></a>
-                <?php endfor; ?>
-
-                <?php 
-                // Show last page if not in range
-                if ($end_page < $total_pages) {
-                    if ($end_page < $total_pages - 1) {
-                        echo '<span class="btn btn-sm">...</span>';
-                    }
-                    echo '<a href="?page=' . $total_pages . '" class="btn btn-sm btn-primary">' . $total_pages . '</a>';
-                }
-
-                if ($current_page < $total_pages): ?>
-                    <a href="?page=<?= $current_page + 1 ?>" class="btn btn-sm btn-primary">Next</a>
-                <?php endif; ?>
-            </div>
-
-            <!-- Optional: Show total items count -->
-            <div class="pagination-info" style="text-align: center; margin-top: 0.5rem; color: var(--gray);">
-                Showing <?= (($current_page - 1) * $items_per_page) + 1 ?> to 
-                <?= min($current_page * $items_per_page, $total_items) ?> 
-                of <?= $total_items ?> items
-            </div>
-        <?php endif; ?>
-    </div>
-
-<div class="add-new-link">
-    <a href="add_new_stock.php" class="btn btn-primary">Add New Item</a>
-    <a href="restock_item.php" class="btn btn-success">Restock Items</a>
-</div>
-</div>
-
-<footer>
-    &copy; <?= date('Y') ?> Snow Hotel Management System. All rights reserved.
-</footer>
-</main>
-</div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Mobile menu toggle
-        const menuToggle = document.getElementById('menuToggle');
-        const sidebar = document.querySelector('.sidebar');
-        const mainContent = document.querySelector('.main-content');
-        
-        if (menuToggle) {
-            menuToggle.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation(); // Prevent event from bubbling up
-                sidebar.classList.toggle('active');
                 
-                // Update toggle icon based on sidebar state
-                if (sidebar.classList.contains('active')) {
-                    menuToggle.innerHTML = '<i class="fas fa-times"></i>'; // Change to X icon when open
-                } else {
-                    menuToggle.innerHTML = '<i class="fas fa-bars"></i>'; // Change back to bars when closed
-                }
-            });
-        }
-        
-        // Close sidebar when clicking on main content (for mobile)
-        if (mainContent) {
-            mainContent.addEventListener('click', function() {
-                if (window.innerWidth <= 992 && sidebar.classList.contains('active')) {
-                    sidebar.classList.remove('active');
-                    if (menuToggle) {
+                <form method="POST" action="">
+                    <div class="form-group">
+                        <label for="new_consumable_name" class="form-label">Consumable Item Name</label>
+                        <input type="text" id="new_consumable_name" name="new_consumable_name" class="form-control" 
+                               value="<?= isset($_POST['new_consumable_name']) ? htmlspecialchars($_POST['new_consumable_name']) : '' ?>" 
+                               required 
+                               placeholder="Enter new consumable item name">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="quantity" class="form-label">Initial Quantity</label>
+                        <input type="number" id="quantity" name="quantity" class="form-control" 
+                               value="<?= isset($_POST['quantity']) ? htmlspecialchars($_POST['quantity']) : '' ?>" 
+                               step="0.01" min="0" required 
+                               placeholder="Enter initial stock quantity">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="unit_price" class="form-label">Unit Price</label>
+                        <input type="number" id="unit_price" name="unit_price" class="form-control" 
+                               value="<?= isset($_POST['unit_price']) ? htmlspecialchars($_POST['unit_price']) : '' ?>" 
+                               step="0.01" min="0" required 
+                               placeholder="Enter unit price">
+                    </div>
+                    
+                    <div class="form-actions">
+                        <a href="view_stock.php" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Add Stock Item</button>
+                    </div>
+                </form>
+            </div>
+            
+            <footer>
+                &copy; <?= date('Y') ?> Snow Hotel Management System. All rights reserved.
+            </footer>
+        </main>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Mobile menu toggle
+            const menuToggle = document.getElementById('menuToggle');
+            const sidebar = document.querySelector('.sidebar');
+            const mainContent = document.querySelector('.main-content');
+            
+            if (menuToggle) {
+                menuToggle.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    sidebar.classList.toggle('active');
+                    
+                    if (sidebar.classList.contains('active')) {
+                        menuToggle.innerHTML = '<i class="fas fa-times"></i>';
+                    } else {
                         menuToggle.innerHTML = '<i class="fas fa-bars"></i>';
                     }
-                }
-            });
-        }
-    });
-</script>
+                });
+            }
+            
+            if (mainContent) {
+                mainContent.addEventListener('click', function() {
+                    if (window.innerWidth <= 992 && sidebar.classList.contains('active')) {
+                        sidebar.classList.remove('active');
+                        if (menuToggle) {
+                            menuToggle.innerHTML = '<i class="fas fa-bars"></i>';
+                        }
+                    }
+                });
+            }
+            
+            const form = document.querySelector('form');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    const consumableName = form.querySelector('#new_consumable_name');
+                    const quantity = form.querySelector('#quantity');
+                    const unitPrice = form.querySelector('#unit_price');
+                    let isValid = true;
+                    
+                    if (consumableName.value.trim() === '') {
+                        alert('Please enter a consumable item name.');
+                        isValid = false;
+                    }
+                    
+                    if (quantity.value < 0) {
+                        alert('Quantity cannot be negative.');
+                        isValid = false;
+                    }
+                    
+                    if (unitPrice.value < 0) {
+                        alert('Unit price cannot be negative.');
+                        isValid = false;
+                    }
+                    
+                    if (!isValid) {
+                        e.preventDefault();
+                    }
+                });
+            }
+        });
+    </script>
 </body>
-</html>
+</html> 

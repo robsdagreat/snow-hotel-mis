@@ -9,26 +9,48 @@ if (!isset($_SESSION['user_id'])) {
 
 require_once '../classes/Stock.php';
 $stock = new Stock();
-$current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-$items_per_page = 15;
 
-// Change this to properly extract data and pagination info
-$stock_data = $stock->getStock($current_page, $items_per_page);
-$data = $stock_data['items'] ?? []; // Explicitly set $data from returned items
-$total_pages = $stock_data['total_pages'] ?? 0;
-$total_items = $stock_data['total_items'] ?? 0;
+// Get all stock items for restocking
+$stock_items = $stock->getAllStockItems();
 
-echo "<!-- Debug Info 
-Total Items: $total_items
-Total Pages: $total_pages
-Current Page: $current_page
-Number of Items: " . count($data) . "
--->";
+// Handle form submission
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $restocked_items = [];
+    $errors = [];
 
-// Rest of the code remains the same as in the original file
+    foreach ($stock_items as $item) {
+        $stock_id = $item['id'];
+        $restock_quantity = isset($_POST['restock_quantity'][$stock_id]) ? 
+                            floatval($_POST['restock_quantity'][$stock_id]) : 0;
+        $unit_price = isset($_POST['unit_price'][$stock_id]) ? 
+                      floatval($_POST['unit_price'][$stock_id]) : $item['unit_price'];
+
+        if ($restock_quantity > 0) {
+            try {
+                $result = $stock->restockItem($stock_id, $restock_quantity, $unit_price);
+                
+                if ($result) {
+                    $restocked_items[] = $item['item'];
+                } else {
+                    $errors[] = "Failed to restock {$item['item']}";
+                }
+            } catch (Exception $e) {
+                $errors[] = "Error restocking {$item['item']}: " . $e->getMessage();
+            }
+        }
+    }
+
+    if (!empty($restocked_items)) {
+        $_SESSION['success_message'] = "Successfully restocked: " . implode(', ', $restocked_items);
+        header('Location: view_stock.php');
+        exit;
+    }
+}
+
+// Set breadcrumb variables
 $breadcrumb_section = "Inventory";
-$breadcrumb_section_url = "manage_stock.php";
-$breadcrumb_page = "Current Stock";
+$breadcrumb_section_url = "view_stock.php";
+$breadcrumb_page = "Restock Items";
 
 $today = date('F d, Y');
 $current_time = date('h:i A');
@@ -38,7 +60,7 @@ $current_time = date('h:i A');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Current Stock - Snow Hotel Management System</title>
+    <title>Restock Items - Snow Hotel Management System</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
@@ -345,13 +367,13 @@ $current_time = date('h:i A');
             background-color: #d32f2f;
         }
 
-        .btn-warning {
-            background-color: var(--warning);
-            color: white;
+        .btn-secondary {
+            background-color: var(--gray-light);
+            color: var(--dark);
         }
 
-        .btn-warning:hover {
-            background-color: #e68a00;
+        .btn-secondary:hover {
+            background-color: #d1d7e0;
         }
 
         .no-data-message {
@@ -364,6 +386,68 @@ $current_time = date('h:i A');
         .add-new-link {
             display: inline-block;
             margin-top: 1.5rem;
+        }
+
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--gray-light);
+            border-radius: var(--radius);
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(90, 90, 241, 0.1);
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .alert {
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            border-radius: var(--radius);
+        }
+
+        .alert-danger {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .text-muted {
+            color: var(--gray);
+        }
+
+        .ml-2 {
+            margin-left: 0.5rem;
+        }
+
+        .mr-1 {
+            margin-right: 0.25rem;
+        }
+
+        .low-stock-warning {
+            color: var(--warning);
+            font-weight: 600;
         }
 
         /* Footer Styles */
@@ -420,6 +504,15 @@ $current_time = date('h:i A');
             .table-responsive {
                 overflow-x: auto;
             }
+            
+            .form-actions {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .form-actions .btn {
+                width: 100%;
+            }
         }
     </style>
 </head>
@@ -468,7 +561,7 @@ $current_time = date('h:i A');
                 </button>
                 
                 <div class="page-title">
-                    <h1>Current Stock</h1>
+                    <h1>Restock Items</h1>
                     <div class="breadcrumb">
                         <a href="../index.php">Dashboard</a>
                         <span>&gt;</span>
@@ -494,148 +587,132 @@ $current_time = date('h:i A');
             
             <!-- Table Container -->
             <div class="table-container">
-                <h2 class="table-title">Inventory Stock</h2>
+                <h2 class="table-title">Restock Inventory Items</h2>
                 
-                <?php if (empty($data)): ?>
+                <?php if (!empty($errors)): ?>
+                    <div class="alert alert-danger">
+                        <?php foreach ($errors as $error): ?>
+                            <p><?= htmlspecialchars($error) ?></p>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+                
+                <?php if (empty($stock_items)): ?>
                     <div class="no-data-message">
-                        <p>No stock data available. Get started by adding consumables to your inventory.</p>
+                        <p>No stock items available for restocking.</p>
                     </div>
                 <?php else: ?>
-                    <div class="table-responsive">
-                        <table>
-                            <thead>
-                                <tr>
-                                <th>ID</th>
-                                <th>Item</th>
-                                <th>Quantity</th>
-                                <th>Unit</th>
-                                <th>Total value</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-    <?php foreach ($data as $row): ?>
-        <tr>
-            <td><?= htmlspecialchars($row['id']) ?></td>
-            <td><?= htmlspecialchars($row['item']) ?></td>
-            <td><?= htmlspecialchars($row['quantity']) ?></td>
-            <td><?= htmlspecialchars($row['unit_price']) ?></td>
-            <td><?= htmlspecialchars($row['total_value']) ?></td>
-            <td>
-                <?php 
-                $threshold = 10; // Set a default threshold value
-                if ($row['quantity'] <= $threshold): ?>
-                    <span style="color: var(--danger); font-weight: bold;">Low Stock</span>
-                <?php else: ?>
-                    <span style="color: var(--success);">In Stock</span>
-                <?php endif; ?>
-            </td>
-            <td>
-                <div class="actions">
-                    <a href="update_stock.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-success">Update</a>
-                    <a href="view_stock_history.php?id=<?= $row['consumable_id'] ?>" class="btn btn-sm btn-primary">History</a>
-                </div>
-            </td>
-        </tr>
-    <?php endforeach; ?>
-</tbody>
- </table>
- </div> <!-- Pagination Navigation -->
-            <div class="pagination" style="margin-top: 1rem; display: flex; justify-content: center; align-items: center; gap: 0.5rem;">
-                <?php if ($current_page > 1): ?>
-                    <a href="?page=<?= $current_page - 1 ?>" class="btn btn-sm btn-primary">Previous</a>
-                <?php endif; ?>
-
-                <?php 
-                // Smart page number display
-                $max_pages_to_show = 5;
-                $start_page = max(1, min($current_page - floor($max_pages_to_show / 2), $total_pages - $max_pages_to_show + 1));
-                $end_page = min($start_page + $max_pages_to_show - 1, $total_pages);
-
-                // Show first page if not in range
-                if ($start_page > 1) {
-                    echo '<a href="?page=1" class="btn btn-sm btn-primary">1</a>';
-                    if ($start_page > 2) {
-                        echo '<span class="btn btn-sm">...</span>';
-                    }
-                }
-
-                for ($i = $start_page; $i <= $end_page; $i++): 
-                    $active_class = ($i == $current_page) ? 'btn-success' : 'btn-primary';
-                ?>
-                    <a href="?page=<?= $i ?>" class="btn btn-sm <?= $active_class ?>"><?= $i ?></a>
-                <?php endfor; ?>
-
-                <?php 
-                // Show last page if not in range
-                if ($end_page < $total_pages) {
-                    if ($end_page < $total_pages - 1) {
-                        echo '<span class="btn btn-sm">...</span>';
-                    }
-                    echo '<a href="?page=' . $total_pages . '" class="btn btn-sm btn-primary">' . $total_pages . '</a>';
-                }
-
-                if ($current_page < $total_pages): ?>
-                    <a href="?page=<?= $current_page + 1 ?>" class="btn btn-sm btn-primary">Next</a>
+                    <form method="POST" action="">
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Item</th>
+                                        <th>Current Quantity</th>
+                                        <th>Current Unit Price</th>
+                                        <th>Restock Quantity</th>
+                                        <th>New Unit Price</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($stock_items as $item): ?>
+                                        <tr>
+                                            <td><?= htmlspecialchars($item['item']) ?>
+                                                <?php if ($item['quantity'] < 10): ?>
+                                                    <br><span class="low-stock-warning">Low Stock</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td><?= htmlspecialchars($item['quantity']) ?></td>
+                                            <td>$<?= number_format($item['unit_price'], 2) ?></td>
+                                            <td>
+                                                <input type="number" 
+                                                       class="form-control" 
+                                                       name="restock_quantity[<?= $item['id'] ?>]" 
+                                                       min="0" step="0.01" 
+                                                       placeholder="Enter quantity">
+                                            </td>
+                                            <td>
+                                                <input type="number" 
+                                                       class="form-control" 
+                                                       name="unit_price[<?= $item['id'] ?>]" 
+                                                       min="0" step="0.01" 
+                                                       placeholder="Optional new price"
+                                                       value="<?= $item['unit_price'] ?>">
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <a href="view_stock.php" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Restock Items</button>
+                        </div>
+                    </form>
                 <?php endif; ?>
             </div>
-
-            <!-- Optional: Show total items count -->
-            <div class="pagination-info" style="text-align: center; margin-top: 0.5rem; color: var(--gray);">
-                Showing <?= (($current_page - 1) * $items_per_page) + 1 ?> to 
-                <?= min($current_page * $items_per_page, $total_items) ?> 
-                of <?= $total_items ?> items
-            </div>
-        <?php endif; ?>
+            
+            <footer>
+                &copy; <?= date('Y') ?> Snow Hotel Management System. All rights reserved.
+            </footer>
+        </main>
     </div>
-
-<div class="add-new-link">
-    <a href="add_new_stock.php" class="btn btn-primary">Add New Item</a>
-    <a href="restock_item.php" class="btn btn-success">Restock Items</a>
-</div>
-</div>
-
-<footer>
-    &copy; <?= date('Y') ?> Snow Hotel Management System. All rights reserved.
-</footer>
-</main>
-</div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Mobile menu toggle
-        const menuToggle = document.getElementById('menuToggle');
-        const sidebar = document.querySelector('.sidebar');
-        const mainContent = document.querySelector('.main-content');
-        
-        if (menuToggle) {
-            menuToggle.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation(); // Prevent event from bubbling up
-                sidebar.classList.toggle('active');
-                
-                // Update toggle icon based on sidebar state
-                if (sidebar.classList.contains('active')) {
-                    menuToggle.innerHTML = '<i class="fas fa-times"></i>'; // Change to X icon when open
-                } else {
-                    menuToggle.innerHTML = '<i class="fas fa-bars"></i>'; // Change back to bars when closed
-                }
-            });
-        }
-        
-        // Close sidebar when clicking on main content (for mobile)
-        if (mainContent) {
-            mainContent.addEventListener('click', function() {
-                if (window.innerWidth <= 992 && sidebar.classList.contains('active')) {
-                    sidebar.classList.remove('active');
-                    if (menuToggle) {
-                        menuToggle.innerHTML = '<i class="fas fa-bars"></i>';
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Mobile menu toggle
+            const menuToggle = document.getElementById('menuToggle');
+            const sidebar = document.querySelector('.sidebar');
+            const mainContent = document.querySelector('.main-content');
+            
+            if (menuToggle) {
+                menuToggle.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation(); // Prevent event from bubbling up
+                    sidebar.classList.toggle('active');
+                    
+                    // Update toggle icon based on sidebar state
+                    if (sidebar.classList.contains('active')) {
+                        menuToggle.innerHTML = '<i class="fas fa-times"></i>'; // Change to X icon when open
+                    } else {
+                        menuToggle.innerHTML = '<i class="fas fa-bars"></i>'; // Change back to bars when closed
                     }
-                }
-            });
-        }
-    });
-</script>
+                });
+            }
+            
+            // Close sidebar when clicking on main content (for mobile)
+            if (mainContent) {
+                mainContent.addEventListener('click', function() {
+                    if (window.innerWidth <= 992 && sidebar.classList.contains('active')) {
+                        sidebar.classList.remove('active');
+                        if (menuToggle) {
+                            menuToggle.innerHTML = '<i class="fas fa-bars"></i>';
+                        }
+                    }
+                });
+            }
+            
+            // Form validation
+            const form = document.querySelector('form');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    const quantityInputs = form.querySelectorAll('input[name^="restock_quantity"]');
+                    let hasQuantity = false;
+                    
+                    quantityInputs.forEach(input => {
+                        if (input.value && parseFloat(input.value) > 0) {
+                            hasQuantity = true;
+                        }
+                    });
+                    
+                    if (!hasQuantity) {
+                        e.preventDefault();
+                        alert('Please enter a restock quantity for at least one item.');
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>

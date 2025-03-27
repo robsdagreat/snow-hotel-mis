@@ -407,52 +407,48 @@ $current_time = date('h:i A');
         }
 
         /* Pagination Styles */
+        .pagination-info {
+            text-align: center;
+            margin-top: 0.5rem;
+            color: var(--gray);
+        }
+
         .pagination {
             display: flex;
             justify-content: center;
-            margin-top: 2rem;
+            align-items: center;
             gap: 0.5rem;
+            margin-top: 1rem;
         }
-        
+
         .pagination-link {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: 40px;
-            height: 40px;
-            padding: 0 0.75rem;
-            font-size: 0.9rem;
-            background-color: white;
-            color: var(--dark);
+            width: 35px;
+            height: 35px;
             border-radius: var(--radius);
-            border: 1px solid var(--gray-light);
             text-decoration: none;
+            color: var(--primary);
+            border: 1px solid var(--gray-light);
             transition: all 0.2s;
         }
-        
+
         .pagination-link:hover {
-            background-color: var(--light);
-            border-color: var(--gray);
+            background-color: var(--primary);
+            color: white;
         }
-        
+
         .pagination-link.active {
             background-color: var(--primary);
             color: white;
-            border-color: var(--primary);
         }
-        
+
         .pagination-link.disabled {
-            background-color: var(--light);
             color: var(--gray);
             cursor: not-allowed;
             pointer-events: none;
-        }
-        
-        .pagination-info {
-            text-align: center;
-            color: var(--gray);
-            font-size: 0.9rem;
-            margin-bottom: 1rem;
+            background-color: var(--gray-light);
         }
 
         /* Footer Styles */
@@ -653,62 +649,63 @@ $current_time = date('h:i A');
                     </table>
                 </div>
                 
-                <!-- Pagination Controls -->
                 <?php if ($total_pages > 1): ?>
-                <div class="pagination-info">
-                    Showing <?= $starting_number ?> to <?= min($starting_number + count($data) - 1, $total_items) ?> of <?= $total_items ?> entries
-                </div>
-                <div class="pagination">
-                    <!-- First Page Link -->
-                    <a href="?sort_by=<?= $sort_by ?>&order=<?= $order ?>&page=1" class="pagination-link <?= ($current_page == 1) ? 'disabled' : '' ?>">
-                        <i class="fas fa-angle-double-left"></i>
-                    </a>
-                    
-                    <!-- Previous Page Link -->
-                    <a href="?sort_by=<?= $sort_by ?>&order=<?= $order ?>&page=<?= max(1, $current_page - 1) ?>" class="pagination-link <?= ($current_page == 1) ? 'disabled' : '' ?>">
-                        <i class="fas fa-angle-left"></i>
-                    </a>
-                    
-                    <!-- Page Number Links -->
-                    <?php
-                    // Display a reasonable number of page links
-                    $start_page = max(1, $current_page - 2);
-                    $end_page = min($total_pages, $current_page + 2);
-                    
-                    // Always show first page
-                    if ($start_page > 1) {
-                        echo '<a href="?sort_by=' . $sort_by . '&order=' . $order . '&page=1" class="pagination-link">1</a>';
-                        if ($start_page > 2) {
-                            echo '<span class="pagination-link disabled">...</span>';
-                        }
-                    }
-                    
-                    // Display page links
-                    for ($i = $start_page; $i <= $end_page; $i++) {
-                        $active_class = ($i == $current_page) ? 'active' : '';
-                        echo '<a href="?sort_by=' . $sort_by . '&order=' . $order . '&page=' . $i . '" class="pagination-link ' . $active_class . '">' . $i . '</a>';
-                    }
-                    
-                    // Always show last page
-                    if ($end_page < $total_pages) {
-                        if ($end_page < $total_pages - 1) {
-                            echo '<span class="pagination-link disabled">...</span>';
-                        }
-                        echo '<a href="?sort_by=' . $sort_by . '&order=' . $order . '&page=' . $total_pages . '" class="pagination-link">' . $total_pages . '</a>';
-                    }
-                    ?>
-                    
-                    <!-- Next Page Link -->
-                    <a href="?sort_by=<?= $sort_by ?>&order=<?= $order ?>&page=<?= min($total_pages, $current_page + 1) ?>" class="pagination-link <?= ($current_page == $total_pages) ? 'disabled' : '' ?>">
-                        <i class="fas fa-angle-right"></i>
-                    </a>
-                    
-                    <!-- Last Page Link -->
-                    <a href="?sort_by=<?= $sort_by ?>&order=<?= $order ?>&page=<?= $total_pages ?>" class="pagination-link <?= ($current_page == $total_pages) ? 'disabled' : '' ?>">
-                        <i class="fas fa-angle-double-right"></i>
-                    </a>
-                </div>
-                <?php endif; ?>
+   <?php if ($total_pages > 1): ?>
+    <div class="pagination-info">
+        Showing <?= ($current_page - 1) * $items_per_page + 1 ?> to <?= min(($current_page * $items_per_page), $total_items) ?> of <?= $total_items ?> entries
+    </div>
+    <div class="pagination">
+        <!-- First Page Link -->
+        <a href="?page=1" class="pagination-link <?= ($current_page == 1) ? 'disabled' : '' ?>">
+            <i class="fas fa-angle-double-left"></i>
+        </a>
+        
+        <!-- Previous Page Link -->
+        <a href="?page=<?= max(1, $current_page - 1) ?>" class="pagination-link <?= ($current_page == 1) ? 'disabled' : '' ?>">
+            <i class="fas fa-angle-left"></i>
+        </a>
+        
+        <!-- Page Number Links -->
+        <?php
+        // Display a reasonable number of page links
+        $start_page = max(1, $current_page - 2);
+        $end_page = min($total_pages, $current_page + 2);
+        
+        // Always show first page
+        if ($start_page > 1) {
+            echo '<a href="?page=1" class="pagination-link">1</a>';
+            if ($start_page > 2) {
+                echo '<span class="pagination-link disabled">...</span>';
+            }
+        }
+        
+        // Display page links
+        for ($i = $start_page; $i <= $end_page; $i++) {
+            $active_class = ($i == $current_page) ? 'active' : '';
+            echo '<a href="?page=' . $i . '" class="pagination-link ' . $active_class . '">' . $i . '</a>';
+        }
+        
+        // Always show last page
+        if ($end_page < $total_pages) {
+            if ($end_page < $total_pages - 1) {
+                echo '<span class="pagination-link disabled">...</span>';
+            }
+            echo '<a href="?page=' . $total_pages . '" class="pagination-link">' . $total_pages . '</a>';
+        }
+        ?>
+        
+        <!-- Next Page Link -->
+        <a href="?page=<?= min($total_pages, $current_page + 1) ?>" class="pagination-link <?= ($current_page == $total_pages) ? 'disabled' : '' ?>">
+            <i class="fas fa-angle-right"></i>
+        </a>
+        
+        <!-- Last Page Link -->
+        <a href="?page=<?= $total_pages ?>" class="pagination-link <?= ($current_page == $total_pages) ? 'disabled' : '' ?>">
+            <i class="fas fa-angle-double-right"></i>
+        </a>
+    </div>
+<?php endif; ?>
+<?php endif; ?>
                 
                 <div style="margin-top: 2rem; text-align: right;">
                     <a href="add_consumable.php" class="add-new-btn">
