@@ -42,17 +42,15 @@ $metrics = [
 // Calculate monthly revenue
 $currentMonth = date('m');
 $currentYear = date('Y');
-$monthlyRevenue = 0;
+$monthlyRevenue = $customers->getMonthlyRevenue();
 
 // Get customer history for current month to calculate revenue
 $customerHistory = $customers->getCustomerHistory();
+$monthlyRevenue = 0;
 foreach ($customerHistory as $history) {
     $departureDate = new DateTime($history['departure_datetime']);
     if ($departureDate->format('m') == $currentMonth && $departureDate->format('Y') == $currentYear) {
-        $customer = $customers->getCustomerById($history['id']);
-        if ($customer) {
-            $monthlyRevenue += $customer['total_amount'];
-        }
+        $monthlyRevenue += $history['total_amount'];
     }
 }
 
@@ -295,6 +293,11 @@ $current_time = date('h:i A');
             align-items: center;
             justify-content: center;
             font-size: 1.5rem;
+        }
+        
+        .metric-icon.blue {
+            background: rgba(33, 150, 243, 0.1);
+            color: #2196F3;
         }
 
         .metric-icon.purple {
@@ -642,6 +645,15 @@ $current_time = date('h:i A');
                     <div class="metric-details">
                         <h3>Monthly Revenue</h3>
                         <div class="metric-value">$<?= number_format($metrics['monthly_revenue']) ?></div>
+                    </div>
+                </div>
+                <div class="dashboard-card metric-card">
+                    <div class="metric-icon blue">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="metric-details">
+                        <h3>Pending Checkouts</h3>
+                        <div class="metric-value"><?= $metrics['pending_checkouts'] ?></div>
                     </div>
                 </div>
             </div>

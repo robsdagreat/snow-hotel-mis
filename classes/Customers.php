@@ -162,6 +162,8 @@ class Customers{
             ':check_out_time' => $checkOutTime
         ]);
     }
+
+
     
     public function getAllCustomers() {
         $sql = "
@@ -287,7 +289,34 @@ class Customers{
         }
     }
     
-    // Add these methods to your Customers.php file
+    public function getCustomerHistory() {
+        $sql = "
+            SELECT 
+                c.id, 
+                c.guest_name, 
+                r.room_number, 
+                c.arrival_datetime, 
+                c.departure_datetime,
+                c.total_amount
+            FROM 
+                customers c
+            INNER JOIN 
+                rooms r ON c.room_id = r.id
+            WHERE 
+                c.status = 0
+            ORDER BY 
+                c.departure_datetime DESC
+        ";
+        
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error fetching customer history: " . $e->getMessage());
+            return [];
+        }
+    }
 
 public function getCustomerHistoryPaginated($offset, $limit) {
     $sql = "
@@ -353,7 +382,36 @@ public function getTotalCustomerHistoryCount() {
     }
 
 
-    // Add this method to your Customers class
+    public function getMonthlyRevenue($month = null, $year = null) {
+        // If no month/year provided, use current month and year
+        $month = $month ?? date('m');
+        $year = $year ?? date('Y');
+    
+        $sql = "
+            SELECT 
+                COALESCE(SUM(total_amount), 0) as monthly_revenue
+            FROM 
+                customers
+            WHERE 
+                status = 0 
+                AND MONTH(departure_datetime) = :month 
+                AND YEAR(departure_datetime) = :year
+        ";
+        
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->bindParam(':month', $month, PDO::PARAM_INT);
+            $stmt->bindParam(':year', $year, PDO::PARAM_INT);
+            $stmt->execute();
+            
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $result['monthly_revenue'] ?? 0;
+        } catch (PDOException $e) {
+            error_log("Error calculating monthly revenue: " . $e->getMessage());
+            return 0;
+        }
+    }
+
     public function getPendingCheckouts($days = 2) {
         $today = date('Y-m-d');
         $futureDate = date('Y-m-d', strtotime("+$days days"));
