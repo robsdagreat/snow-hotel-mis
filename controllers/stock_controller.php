@@ -12,6 +12,30 @@ ini_set('display_errors', 1);
 require_once '../classes/Stock.php';
 $stock = new Stock();
 
+// Handle AJAX requests
+if (isset($_GET['action'])) {
+    header('Content-Type: application/json');
+    
+    if ($_GET['action'] === 'get_stock' && isset($_GET['consumable_id'])) {
+        $consumable_id = intval($_GET['consumable_id']);
+        $stock_item = $stock->getStockItemById($consumable_id);
+        
+        if ($stock_item) {
+            echo json_encode([
+                'success' => true,
+                'quantity' => $stock_item['quantity'],
+                'unit_price' => $stock_item['unit_price']
+            ]);
+        } else {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Stock item not found'
+            ]);
+        }
+        exit;
+    }
+}
+
 // Check if a consumable_id is provided for viewing stock history
 if (isset($_GET['consumable_id'])) {
     $consumable_id = intval($_GET['consumable_id']);

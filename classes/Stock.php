@@ -28,7 +28,7 @@ class Stock {
                 description TEXT NOT NULL,
                 unit_price DECIMAL(10,2) NOT NULL,
                 total_value DECIMAL(10,2) NOT NULL,                
-                transaction_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                transaction_datetime DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (consumable_id) REFERENCES consumables(id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         ";
@@ -103,7 +103,8 @@ class Stock {
                 quantity, 
                 description,
                 unit_price, 
-                total_value  
+                total_value,
+                transaction_datetime
             ) 
             VALUES (
                 :consumable_id, 
@@ -111,7 +112,8 @@ class Stock {
                 :quantity, 
                 :description,
                 :unit_price, 
-                :total_value                  
+                :total_value,
+                NOW()
             )";
             $logStmt = $this->pdo->prepare($logSql);
             $logStmt->execute([
@@ -330,22 +332,240 @@ class Stock {
     
     public function getConsumableDetails($consumable_id) {
         $sql = "
-            SELECT 
-                c.id, 
-                c.item, 
-                s.service, 
-                c.unit, 
-                c.unit_price
+            SELECT c.id, c.item, c.service, c.unit, c.unit_price, s.quantity, s.total_value
             FROM consumables c
-            LEFT JOIN services s ON c.service = s.id
+            LEFT JOIN stock s ON c.id = s.consumable_id
             WHERE c.id = :consumable_id
+        ";
+        $stmt = $this->pdo->prepare($sql);
+        try {
+            $stmt->execute([':consumable_id' => $consumable_id]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            // If no stock record exists, create a default one
+            if (!$result) {
+                // Get consumable details without stock
+                $sql = "SELECT id, item, service, unit, unit_price FROM consumables WHERE id = :consumable_id";
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute([':consumable_id' => $consumable_id]);
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                // Add default stock values
+                $result['quantity'] = 0;
+                $result['total_value'] = 0;
+            }
+            
+            return $result;
+        } catch (PDOException $e) {
+            die("Error retrieving consumable details: " . $e->getMessage());
+        }
+    }
+    
+    public function getPurchaseHistory($consumable_id = 'all', $page = 1, $per_page = 15) {
+        try {
+            // Ensure page is a positive integer
+            $page = max(1, (int)$page);
+            
+            // Base query for counting total records
+            $count_sql = "SELECT COUNT(*) as total_count FROM stock_transactions st 
+                         JOIN consumables c ON st.consumable_id = c.id 
+                         WHERE transaction_type = 'purchase'";
+            
+            // Base query for fetching records
+            $sql = "SELECT 
+                    st.id,
+                    st.consumable_id,
+                    c.item,
+                    st.transaction_type,
+                    st.quantity,
+                    st.description,
+                    st.unit_price,
+                    st.total_value,
+                    DATE_FORMAT(st.transaction_datetime, '%Y-%m-%d %H:%i:%s') as transaction_datetime
+                   FROM stock_transactions st 
+                   JOIN consumables c ON st.consumable_id = c.id 
+                   WHERE transaction_type = 'purchase'";
+            
+            $params = [];
+            
+            // Add consumable filter if specified
+            if ($consumable_id !== 'all') {
+                $count_sql .= " AND st.consumable_id = :consumable_id";
+                $sql .= " AND st.consumable_id = :consumable_id";
+                $params[':consumable_id'] = $consumable_id;
+            }
+            
+            // Add ordering
+            $sql .= " ORDER BY st.transaction_datetime DESC";
+            
+            // Get total count
+            $count_stmt = $this->pdo->prepare($count_sql);
+            $count_stmt->execute($params);
+            $total_count = $count_stmt->fetch(PDO::FETCH_ASSOC)['total_count'];
+            
+            // Calculate pagination
+            $total_pages = ceil($total_count / $per_page);
+            $offset = ($page - 1) * $per_page;
+            
+            // Add pagination to main query
+            $sql .= " LIMIT :per_page OFFSET :offset";
+            $params[':per_page'] = $per_page;
+            $params[':offset'] = $offset;
+            
+            // Execute main query
+            $stmt = $this->pdo->prepare($sql);
+            foreach ($params as $key => $value) {
+                if ($key === ':per_page' || $key === ':offset') {
+                    $stmt->bindValue($key, $value, PDO::PARAM_INT);
+                } else {
+                    $stmt->bindValue($key, $value);
+                }
+            }
+            $stmt->execute();
+            
+            return [
+                'items' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+                'total_pages' => $total_pages,
+                'total_items' => $total_count
+            ];
+        } catch (PDOException $e) {
+            error_log("Error retrieving purchase history: " . $e->getMessage());
+            return [
+                'items' => [],
+                'total_pages' => 0,
+                'total_items' => 0
+            ];
+        }
+    }
+    
+    public function getConsumptionHistory($consumable_id = 'all', $page = 1, $per_page = 15) {
+        try {
+            // Ensure page is a positive integer
+            $page = max(1, (int)$page);
+            
+            // Base query for counting total records
+            $count_sql = "SELECT COUNT(*) as total_count FROM stock_transactions st 
+                         JOIN consumables c ON st.consumable_id = c.id 
+                         WHERE transaction_type = 'consumption'";
+            
+            // Base query for fetching records
+            $sql = "SELECT 
+                    st.id,
+                    st.consumable_id,
+                    c.item,
+                    st.transaction_type,
+                    st.quantity,
+                    st.description,
+                    st.unit_price,
+                    st.total_value,
+                    DATE_FORMAT(st.transaction_datetime, '%Y-%m-%d %H:%i:%s') as transaction_datetime
+                   FROM stock_transactions st 
+                   JOIN consumables c ON st.consumable_id = c.id 
+                   WHERE transaction_type = 'consumption'";
+            
+            $params = [];
+            
+            // Add consumable filter if specified
+            if ($consumable_id !== 'all') {
+                $count_sql .= " AND st.consumable_id = :consumable_id";
+                $sql .= " AND st.consumable_id = :consumable_id";
+                $params[':consumable_id'] = $consumable_id;
+            }
+            
+            // Add ordering
+            $sql .= " ORDER BY st.transaction_datetime DESC";
+            
+            // Get total count
+            $count_stmt = $this->pdo->prepare($count_sql);
+            $count_stmt->execute($params);
+            $total_count = $count_stmt->fetch(PDO::FETCH_ASSOC)['total_count'];
+            
+            // Calculate pagination
+            $total_pages = ceil($total_count / $per_page);
+            $offset = ($page - 1) * $per_page;
+            
+            // Add pagination to main query
+            $sql .= " LIMIT :per_page OFFSET :offset";
+            $params[':per_page'] = $per_page;
+            $params[':offset'] = $offset;
+            
+            // Execute main query
+            $stmt = $this->pdo->prepare($sql);
+            foreach ($params as $key => $value) {
+                if ($key === ':per_page' || $key === ':offset') {
+                    $stmt->bindValue($key, $value, PDO::PARAM_INT);
+                } else {
+                    $stmt->bindValue($key, $value);
+                }
+            }
+            $stmt->execute();
+            
+            return [
+                'items' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+                'total_pages' => $total_pages,
+                'total_items' => $total_count
+            ];
+        } catch (PDOException $e) {
+            error_log("Error retrieving consumption history: " . $e->getMessage());
+            return [
+                'items' => [],
+                'total_pages' => 0,
+                'total_items' => 0
+            ];
+        }
+    }
+    
+    public function getStockByConsumableId($consumable_id) {
+        $sql = "
+            SELECT s.id, s.consumable_id, c.item, s.quantity, s.unit_price, s.total_value
+            FROM stock s
+            JOIN consumables c ON s.consumable_id = c.id
+            WHERE s.consumable_id = :consumable_id
         ";
         $stmt = $this->pdo->prepare($sql);
         try {
             $stmt->execute([':consumable_id' => $consumable_id]);
             return $stmt->fetch(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
-            die("Error retrieving consumable details: " . $e->getMessage());
+            die("Error retrieving stock item: " . $e->getMessage());
+        }
+    }
+
+    public function fixInvalidDates() {
+        try {
+            $sql = "UPDATE stock_transactions 
+                    SET transaction_datetime = last_updated 
+                    WHERE transaction_datetime = '0000-00-00 00:00:00' 
+                    OR transaction_datetime IS NULL";
+            
+            $stmt = $this->pdo->prepare($sql);
+            return $stmt->execute();
+        } catch (PDOException $e) {
+            error_log("Error fixing invalid dates: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function fixInvalidServiceIds() {
+        try {
+            // Default service IDs based on description patterns
+            $sql = "UPDATE stock_transactions 
+                    SET service_id = 
+                        CASE 
+                            WHEN LOWER(description) LIKE '%breakfast%' THEN 4
+                            WHEN LOWER(description) LIKE '%kitchen%' THEN 4
+                            WHEN LOWER(description) LIKE '%restaurant%' OR LOWER(description) LIKE '%resto%' THEN 4
+                            WHEN LOWER(description) LIKE '%room%' THEN 2
+                            ELSE service_id 
+                        END 
+                    WHERE service_id = 0 
+                    AND transaction_type = 'consumption'";
+            
+            $stmt = $this->pdo->prepare($sql);
+            return $stmt->execute();
+        } catch (PDOException $e) {
+            error_log("Error fixing invalid service IDs: " . $e->getMessage());
+            return false;
         }
     }
 }

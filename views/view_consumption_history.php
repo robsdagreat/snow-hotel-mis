@@ -8,27 +8,29 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once '../classes/Stock.php';
+require_once '../classes/Consumables.php';
+
 $stock = new Stock();
-$current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-$items_per_page = 15;
+$consumables = new Consumables();
 
-// Change this to properly extract data and pagination info
-$stock_data = $stock->getStock($current_page, $items_per_page);
-$data = $stock_data['items'] ?? []; // Explicitly set $data from returned items
-$total_pages = $stock_data['total_pages'] ?? 0;
-$total_items = $stock_data['total_items'] ?? 0;
+// Get all consumables for filtering
+$all_consumables = $consumables->getAllConsumables();
 
-echo "<!-- Debug Info 
-Total Items: $total_items
-Total Pages: $total_pages
-Current Page: $current_page
-Number of Items: " . count($data) . "
--->";
+// Set default filter values
+$selected_consumable = $_GET['consumable_id'] ?? 'all';
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$per_page = 15;
 
-// Rest of the code remains the same as in the original file
+// Get consumption history with pagination
+$history_data = $stock->getConsumptionHistory($selected_consumable, $page, $per_page);
+$consumption_history = $history_data['items'];
+$total_pages = $history_data['total_pages'];
+$total_items = $history_data['total_items'];
+
+// Set breadcrumb variables
 $breadcrumb_section = "Inventory";
 $breadcrumb_section_url = "manage_stock.php";
-$breadcrumb_page = "Current Stock";
+$breadcrumb_page = "Consumption History";
 
 $today = date('F d, Y');
 $current_time = date('h:i A');
@@ -38,7 +40,7 @@ $current_time = date('h:i A');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Current Stock - Snow Hotel Management System</title>
+    <title>Consumption History - Snow Hotel Management System</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
@@ -160,11 +162,27 @@ $current_time = date('h:i A');
             padding: 1.5rem 2rem;
         }
 
+        .menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--dark);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            margin-right: 1rem;
+        }
+
         .top-bar {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 2rem;
+        }
+
+        .top-bar-left {
+            display: flex;
+            align-items: center;
         }
 
         .page-title h1 {
@@ -196,22 +214,9 @@ $current_time = date('h:i A');
             margin: 0 0.5rem;
         }
 
-        .breadcrumb .time-display {
-            margin-left: auto;
-        }
-
         .user-nav {
             display: flex;
             align-items: center;
-        }
-
-        .menu-toggle {
-            background: none;
-            border: none;
-            color: var(--dark);
-            font-size: 1.25rem;
-            cursor: pointer;
-            display: none;
         }
 
         .user-profile {
@@ -222,10 +227,9 @@ $current_time = date('h:i A');
             background: white;
             border-radius: var(--radius);
             box-shadow: var(--shadow);
-            cursor: pointer;
         }
 
-        .user-profile .avatar {
+        .avatar {
             width: 40px;
             height: 40px;
             border-radius: 50%;
@@ -238,160 +242,157 @@ $current_time = date('h:i A');
             font-size: 1.2rem;
         }
 
-        .user-profile .user-info {
+        .user-info {
             line-height: 1.3;
         }
 
-        .user-profile .user-name {
+        .user-name {
             font-weight: 600;
             font-size: 0.95rem;
         }
 
-        .user-profile .user-role {
+        .user-role {
             font-size: 0.8rem;
             color: var(--gray);
         }
 
-        /* Table Container */
-        .table-container {
+        .card {
             background: white;
             border-radius: var(--radius);
             box-shadow: var(--shadow);
             padding: 20px;
             margin-bottom: 20px;
         }
-        
-        .table-header {
+
+        .card-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--gray-light);
         }
-        
-        .table-actions {
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-right: auto;
+        }
+
+        .card-header-buttons {
             display: flex;
             gap: 10px;
+            align-items: center;
         }
-        
+
         .btn {
-            padding: 8px 15px;
+            padding: 10px 15px;
             border: none;
             border-radius: var(--radius);
             cursor: pointer;
             font-weight: 500;
             transition: all 0.3s ease;
-            display: flex;
+            text-decoration: none;
+            display: inline-flex;
             align-items: center;
             gap: 5px;
-            text-decoration: none;
         }
-        
+
         .btn-primary {
             background-color: var(--primary);
             color: white;
         }
-        
+
         .btn-primary:hover {
             background-color: var(--primary-dark);
         }
-        
-        .table-title {
-            font-size: 18px;
-            font-weight: 600;
-            margin: 0;
+
+        .btn-secondary {
+            background-color: var(--gray-light);
+            color: var(--dark);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--gray);
+            color: white;
+        }
+
+        .filter-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .filter-label {
+            font-weight: 500;
+            color: var(--dark);
+        }
+
+        .form-control {
+            padding: 8px 12px;
+            border: 1px solid var(--gray-light);
+            border-radius: var(--radius);
+            font-size: 14px;
+            min-width: 200px;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+            margin-bottom: 1.5rem;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 1rem;
+            margin-bottom: 1rem;
         }
 
-        thead th {
+        th {
             background-color: var(--primary);
             color: white;
-            padding: 0.75rem 1rem;
-            text-align: left;
             font-weight: 600;
-        }
-
-        tbody tr:nth-child(even) {
-            background-color: var(--light);
-        }
-
-        tbody tr:hover {
-            background-color: var(--gray-light);
+            padding: 12px;
+            text-align: left;
         }
 
         td {
-            padding: 0.75rem 1rem;
+            padding: 12px;
             border-bottom: 1px solid var(--gray-light);
         }
 
-        .actions {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .btn-sm {
-            padding: 0.35rem 0.75rem;
-            font-size: 0.85rem;
-        }
-
-        .btn-success {
-            background-color: var(--success);
-            color: white;
-        }
-
-        .btn-success:hover {
-            background-color: #3d8b40;
-        }
-
-        .btn-danger {
-            background-color: var(--danger);
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background-color: #d32f2f;
-        }
-
-        .btn-warning {
-            background-color: var(--warning);
-            color: white;
-        }
-
-        .btn-warning:hover {
-            background-color: #e68a00;
+        tbody tr:hover {
+            background-color: var(--light);
         }
 
         .no-data-message {
-            padding: 1.5rem;
             text-align: center;
+            padding: 2rem;
             color: var(--gray);
             font-style: italic;
         }
 
-        .add-new-link {
+        .pagination {
             display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
             margin-top: 1.5rem;
         }
 
-        .add-new-link a:nth-child(2) {
-            margin-left: 1rem;
-        }
-
-        /* Footer Styles */
-        footer {
-            margin-top: 2rem;
+        .pagination-info {
             text-align: center;
-            font-size: 0.875rem;
+            margin-top: 0.5rem;
             color: var(--gray);
-            padding: 1.5rem 0;
-            border-top: 1px solid var(--gray-light);
+            font-size: 0.875rem;
         }
 
-        /* Media Queries for Responsiveness */
+        /* Media Queries */
         @media (max-width: 992px) {
             .layout {
                 grid-template-columns: 1fr;
@@ -408,19 +409,11 @@ $current_time = date('h:i A');
             .main-content {
                 grid-column: 1;
             }
-            
+
             .menu-toggle {
                 display: block;
-                width: 40px;
-                height: 40px;
-                background: white;
-                border-radius: 50%;
-                box-shadow: var(--shadow);
-                color: var(--primary);
             }
-        }
-        
-        @media (max-width: 768px) {
+            
             .top-bar {
                 flex-direction: column;
                 align-items: flex-start;
@@ -429,11 +422,16 @@ $current_time = date('h:i A');
             
             .user-nav {
                 width: 100%;
-                justify-content: space-between;
+                justify-content: flex-end;
             }
-            
-            .table-responsive {
-                overflow-x: auto;
+
+            .filter-section {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .form-control {
+                width: 100%;
             }
         }
     </style>
@@ -474,7 +472,7 @@ $current_time = date('h:i A');
                 </ul>
             </div>
         </aside>
-        
+
         <!-- Main Content -->
         <main class="main-content">
             <div class="top-bar">
@@ -483,7 +481,7 @@ $current_time = date('h:i A');
                 </button>
                 
                 <div class="page-title">
-                    <h1>Current Stock</h1>
+                    <h1>Consumption History</h1>
                     <div class="breadcrumb">
                         <a href="../index.php">Dashboard</a>
                         <span>&gt;</span>
@@ -495,7 +493,7 @@ $current_time = date('h:i A');
                 </div>
                 
                 <div class="user-nav">
-                    <div class="user-profile" id="userProfileButton">
+                    <div class="user-profile">
                         <div class="avatar">
                             <?= strtoupper(substr($_SESSION['username'] ?? 'U', 0, 1)) ?>
                         </div>
@@ -506,158 +504,147 @@ $current_time = date('h:i A');
                     </div>
                 </div>
             </div>
-            
-            <!-- Table Container -->
-            <div class="table-container">
-                <div class="table-header">
-                    <h2 class="table-title">Inventory Stock</h2>
-                    <div class="table-actions">
-                        <a href="record_consumption.php" class="btn btn-primary">
-                            <i class="fas fa-minus-circle"></i> Record Consumption
-                        </a>
-                    </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Stock Consumption History</h2>
+                    <a href="record_consumption.php" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Record New Consumption
+                    </a>
                 </div>
-                
-                <?php if (empty($data)): ?>
+
+                <div class="filter-section">
+                    <span class="filter-label">Filter by Item:</span>
+                    <select id="consumableFilter" class="form-control" style="width: auto;" onchange="this.form.submit()">
+                        <option value="all">All Items</option>
+                        <?php foreach ($all_consumables as $item): ?>
+                            <option value="<?= $item['id'] ?>" <?= $selected_consumable == $item['id'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($item['item']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <?php if (empty($consumption_history)): ?>
                     <div class="no-data-message">
-                        <p>No stock data available. Get started by adding consumables to your inventory.</p>
+                        <p>No consumption history available.</p>
                     </div>
                 <?php else: ?>
                     <div class="table-responsive">
                         <table>
                             <thead>
                                 <tr>
-                                <th>ID</th>
-                                <th>Item</th>
-                                <th>Quantity</th>
-                                <th>Unit</th>
-                                <th>Total value</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
+                                    <th>Date</th>
+                                    <th>Item</th>
+                                    <th>Quantity</th>
+                                    <th>Unit Price</th>
+                                    <th>Total Value</th>
+                                    <th>Description</th>
+                                </tr>
                             </thead>
                             <tbody>
-    <?php foreach ($data as $row): ?>
-        <tr>
-            <td><?= htmlspecialchars($row['id']) ?></td>
-            <td><?= htmlspecialchars($row['item']) ?></td>
-            <td><?= htmlspecialchars($row['quantity']) ?></td>
-            <td><?= htmlspecialchars($row['unit_price']) ?></td>
-            <td><?= htmlspecialchars($row['total_value']) ?></td>
-            <td>
-                <?php 
-                $threshold = 10; // Set a default threshold value
-                if ($row['quantity'] <= $threshold): ?>
-                    <span style="color: var(--danger); font-weight: bold;">Low Stock</span>
-                <?php else: ?>
-                    <span style="color: var(--success);">In Stock</span>
-                <?php endif; ?>
-            </td>
-            <td>
-                <div class="actions">
-                    <a href="update_stock.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-success">Update</a>
-                    <a href="view_stock_history.php?id=<?= $row['consumable_id'] ?>" class="btn btn-sm btn-primary">History</a>
-                </div>
-            </td>
-        </tr>
-    <?php endforeach; ?>
-</tbody>
- </table>
- </div> <!-- Pagination Navigation -->
-            <div class="pagination" style="margin-top: 1rem; display: flex; justify-content: center; align-items: center; gap: 0.5rem;">
-                <?php if ($current_page > 1): ?>
-                    <a href="?page=<?= $current_page - 1 ?>" class="btn btn-sm btn-primary">Previous</a>
-                <?php endif; ?>
+                                <?php foreach ($consumption_history as $record): ?>
+                                    <tr>
+                                        <td><?= date('Y-m-d H:i', strtotime($record['transaction_datetime'])) ?></td>
+                                        <td><?= htmlspecialchars($record['item']) ?></td>
+                                        <td><?= htmlspecialchars($record['quantity']) ?></td>
+                                        <td><?= number_format($record['unit_price'], 2) ?></td>
+                                        <td><?= number_format($record['total_value'], 2) ?></td>
+                                        <td><?= htmlspecialchars($record['description']) ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
 
-                <?php 
-                // Smart page number display
-                $max_pages_to_show = 5;
-                $start_page = max(1, min($current_page - floor($max_pages_to_show / 2), $total_pages - $max_pages_to_show + 1));
-                $end_page = min($start_page + $max_pages_to_show - 1, $total_pages);
+                    <!-- Pagination -->
+                    <?php if ($total_pages > 1): ?>
+                    <div class="pagination">
+                        <?php if ($page > 1): ?>
+                            <a href="?page=<?= $page - 1 ?>&consumable_id=<?= $selected_consumable ?>" class="btn btn-sm btn-primary">Previous</a>
+                        <?php endif; ?>
 
-                // Show first page if not in range
-                if ($start_page > 1) {
-                    echo '<a href="?page=1" class="btn btn-sm btn-primary">1</a>';
-                    if ($start_page > 2) {
-                        echo '<span class="btn btn-sm">...</span>';
-                    }
-                }
+                        <?php
+                        $max_pages_to_show = 5;
+                        $start_page = max(1, min($page - floor($max_pages_to_show / 2), $total_pages - $max_pages_to_show + 1));
+                        $end_page = min($start_page + $max_pages_to_show - 1, $total_pages);
 
-                for ($i = $start_page; $i <= $end_page; $i++): 
-                    $active_class = ($i == $current_page) ? 'btn-success' : 'btn-primary';
-                ?>
-                    <a href="?page=<?= $i ?>" class="btn btn-sm <?= $active_class ?>"><?= $i ?></a>
-                <?php endfor; ?>
+                        if ($start_page > 1) {
+                            echo '<a href="?page=1&consumable_id=' . $selected_consumable . '" class="btn btn-sm btn-primary">1</a>';
+                            if ($start_page > 2) {
+                                echo '<span class="btn btn-sm">...</span>';
+                            }
+                        }
 
-                <?php 
-                // Show last page if not in range
-                if ($end_page < $total_pages) {
-                    if ($end_page < $total_pages - 1) {
-                        echo '<span class="btn btn-sm">...</span>';
-                    }
-                    echo '<a href="?page=' . $total_pages . '" class="btn btn-sm btn-primary">' . $total_pages . '</a>';
-                }
+                        for ($i = $start_page; $i <= $end_page; $i++):
+                            $active_class = ($i == $page) ? 'btn-success' : 'btn-primary';
+                        ?>
+                            <a href="?page=<?= $i ?>&consumable_id=<?= $selected_consumable ?>" class="btn btn-sm <?= $active_class ?>"><?= $i ?></a>
+                        <?php endfor;
 
-                if ($current_page < $total_pages): ?>
-                    <a href="?page=<?= $current_page + 1 ?>" class="btn btn-sm btn-primary">Next</a>
+                        if ($end_page < $total_pages) {
+                            if ($end_page < $total_pages - 1) {
+                                echo '<span class="btn btn-sm">...</span>';
+                            }
+                            echo '<a href="?page=' . $total_pages . '&consumable_id=' . $selected_consumable . '" class="btn btn-sm btn-primary">' . $total_pages . '</a>';
+                        }
+
+                        if ($page < $total_pages): ?>
+                            <a href="?page=<?= $page + 1 ?>&consumable_id=<?= $selected_consumable ?>" class="btn btn-sm btn-primary">Next</a>
+                        <?php endif; ?>
+                    </div>
+
+                    <!-- Pagination Info -->
+                    <div class="pagination-info">
+                        Showing <?= (($page - 1) * $per_page) + 1 ?> to 
+                        <?= min($page * $per_page, $total_items) ?> 
+                        of <?= $total_items ?> records
+                    </div>
+                    <?php endif; ?>
                 <?php endif; ?>
             </div>
-
-            <!-- Optional: Show total items count -->
-            <div class="pagination-info" style="text-align: center; margin-top: 0.5rem; color: var(--gray);">
-                Showing <?= (($current_page - 1) * $items_per_page) + 1 ?> to 
-                <?= min($current_page * $items_per_page, $total_items) ?> 
-                of <?= $total_items ?> items
-            </div>
-        <?php endif; ?>
+        </main>
     </div>
 
-<div class="add-new-link">
-    <a href="add_new_stock.php" class="btn btn-primary">Add New Item</a>
-    <a href="restock_item.php" class="btn btn-success">Restock Items</a>
-</div>
-</div>
-
-<footer>
-    &copy; <?= date('Y') ?> Snow Hotel Management System. All rights reserved.
-</footer>
-</main>
-</div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Mobile menu toggle
-        const menuToggle = document.getElementById('menuToggle');
-        const sidebar = document.querySelector('.sidebar');
-        const mainContent = document.querySelector('.main-content');
-        
-        if (menuToggle) {
-            menuToggle.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation(); // Prevent event from bubbling up
-                sidebar.classList.toggle('active');
-                
-                // Update toggle icon based on sidebar state
-                if (sidebar.classList.contains('active')) {
-                    menuToggle.innerHTML = '<i class="fas fa-times"></i>'; // Change to X icon when open
-                } else {
-                    menuToggle.innerHTML = '<i class="fas fa-bars"></i>'; // Change back to bars when closed
-                }
-            });
-        }
-        
-        // Close sidebar when clicking on main content (for mobile)
-        if (mainContent) {
-            mainContent.addEventListener('click', function() {
-                if (window.innerWidth <= 992 && sidebar.classList.contains('active')) {
-                    sidebar.classList.remove('active');
-                    if (menuToggle) {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const menuToggle = document.getElementById('menuToggle');
+            const sidebar = document.querySelector('.sidebar');
+            const mainContent = document.querySelector('.main-content');
+            
+            if (menuToggle) {
+                menuToggle.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    sidebar.classList.toggle('active');
+                    
+                    if (sidebar.classList.contains('active')) {
+                        menuToggle.innerHTML = '<i class="fas fa-times"></i>';
+                    } else {
                         menuToggle.innerHTML = '<i class="fas fa-bars"></i>';
                     }
-                }
-            });
-        }
-    });
-</script>
+                });
+            }
+            
+            if (mainContent) {
+                mainContent.addEventListener('click', function() {
+                    if (window.innerWidth <= 992 && sidebar.classList.contains('active')) {
+                        sidebar.classList.remove('active');
+                        if (menuToggle) {
+                            menuToggle.innerHTML = '<i class="fas fa-bars"></i>';
+                        }
+                    }
+                });
+            }
+
+            // Handle consumable filter change
+            const consumableFilter = document.getElementById('consumableFilter');
+            if (consumableFilter) {
+                consumableFilter.addEventListener('change', function() {
+                    window.location.href = '?consumable_id=' + this.value;
+                });
+            }
+        });
+    </script>
 </body>
-</html>
+</html> 
