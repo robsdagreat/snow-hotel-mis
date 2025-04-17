@@ -568,5 +568,96 @@ class Stock {
             return false;
         }
     }
+
+    public function searchStock($search = '', $filter = 'all', $page = 1, $per_page = 15) {
+        // Ensure page is a positive integer
+        $page = max(1, (int)$page);
+        $offset = ($page - 1) * $per_page;
+        
+        try {
+            // Base query for both count and data
+            $baseQuery = "
+                FROM stock s
+                JOIN consumables c ON s.consumable_id = c.id
+                WHERE 1=1
+            ";
+            
+            $params = [];
+            
+            // Add search condition if search term is provided
+            if (!empty($search)) {
+                $baseQuery .= " AND (c.item LIKE :search OR c.service LIKE :search)";
+                $params[':search'] = "%{$search}%";
+            }
+            
+            // Add filter condition
+            if ($filter === 'low_stock') {
+                $baseQuery .= " AND s.quantity <= 10";
+            } elseif ($filter === 'in_stock') {
+                $baseQuery .= " AND s.quantity > 10";
+            }
+            
+            // Get total count
+            $count_sql = "SELECT COUNT(*) as total_count " . $baseQuery;
+            $count_stmt = $this->pdo->prepare($count_sql);
+            foreach ($params as $key => $value) {
+                $count_stmt->bindValue($key, $value);
+            }
+            $count_stmt->execute();
+            $total_count = $count_stmt->fetch(PDO::FETCH_ASSOC)['total_count'];
+            
+            // Calculate total pages
+            $total_pages = ceil($total_count / $per_page);
+            
+            // Get paginated results with additional fields
+            $sql = "
+                SELECT 
+                    s.id, 
+                    s.consumable_id, 
+                    c.item, 
+                    c.service,
+                    c.unit,
+                    s.quantity, 
+                    s.unit_price, 
+                    s.total_value, 
+                    s.last_updated,
+                    CASE 
+                        WHEN s.quantity <= 10 THEN 'low'
+                        ELSE 'normal'
+                    END as stock_status
+                " . $baseQuery . "
+                ORDER BY s.last_updated DESC 
+                LIMIT :per_page OFFSET :offset
+            ";
+            
+            $stmt = $this->pdo->prepare($sql);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
+            $stmt->bindValue(':per_page', $per_page, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            $stmt->execute();
+            
+            return [
+                'items' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+                'total_pages' => $total_pages,
+                'current_page' => $page,
+                'total_items' => $total_count,
+                'search_term' => $search,
+                'filter' => $filter
+            ];
+            
+        } catch (PDOException $e) {
+            error_log("Error searching stock: " . $e->getMessage());
+            return [
+                'items' => [],
+                'total_pages' => 0,
+                'current_page' => $page,
+                'total_items' => 0,
+                'search_term' => $search,
+                'filter' => $filter
+            ];
+        }
+    }
 }
 ?>
