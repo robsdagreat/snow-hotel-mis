@@ -29,6 +29,7 @@ if (!$stock_item) {
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $quantity = isset($_POST['quantity']) ? floatval($_POST['quantity']) : 0;
     $unit_price = isset($_POST['unit_price']) ? floatval($_POST['unit_price']) : 0;
+    $cost_price = isset($_POST['cost_price']) ? floatval($_POST['cost_price']) : 0;
     
     // Validate inputs
     $errors = [];
@@ -38,11 +39,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if ($unit_price < 0) {
         $errors[] = "Unit price cannot be negative.";
     }
+    if ($cost_price < 0) {
+        $errors[] = "Cost price cannot be negative.";
+    }
     
     if (empty($errors)) {
         try {
             // Update stock item
-            $result = $stock->updateStockItem($stock_id, $quantity, $unit_price);
+            $result = $stock->updateStockItem($stock_id, $quantity, $unit_price, $cost_price);
             
             if ($result) {
                 $_SESSION['success_message'] = "Stock item updated successfully.";
@@ -467,6 +471,8 @@ $current_time = date('h:i A');
                     <li><a href="view_stock.php" class="nav-link active"><i class="fas fa-boxes"></i>Inventory</a></li>
                     <li><a href="add_income.php" class="nav-link"><i class="fas fa-money-bill-wave"></i>Revenue</a></li>
                     <li><a href="view_customer_history.php" class="nav-link"><i class="fas fa-history"></i>History</a></li>
+                    <li><a href="import_data.php" class="nav-link"><i class="fas fa-upload"></i>Import Data</a></li>
+<li><a href="view_rooms.php" class="nav-link"><i class="fas fa-bed"></i>Rooms</a></li>
                 </ul>
             </div>
             
@@ -543,6 +549,13 @@ $current_time = date('h:i A');
                                step="0.01" min="0" required>
                     </div>
                     
+                    <div class="form-group">
+                        <label for="cost_price" class="form-label">Cost Price</label>
+                        <input type="number" id="cost_price" name="cost_price" class="form-control" 
+                               value="<?= htmlspecialchars($stock_item['cost_price']) ?>" 
+                               step="0.01" min="0" required>
+                    </div>
+                    
                     <div class="form-actions">
                         <a href="view_stock.php" class="btn btn-secondary">Cancel</a>
                         <button type="submit" class="btn btn-primary">Update Stock</button>
@@ -594,6 +607,7 @@ $current_time = date('h:i A');
                 form.addEventListener('submit', function(e) {
                     const quantity = form.querySelector('#quantity');
                     const unitPrice = form.querySelector('#unit_price');
+                    const costPrice = form.querySelector('#cost_price');
                     let isValid = true;
                     
                     if (quantity.value < 0) {
@@ -603,6 +617,11 @@ $current_time = date('h:i A');
                     
                     if (unitPrice.value < 0) {
                         alert('Unit price cannot be negative.');
+                        isValid = false;
+                    }
+                    
+                    if (costPrice.value < 0) {
+                        alert('Cost price cannot be negative.');
                         isValid = false;
                     }
                     

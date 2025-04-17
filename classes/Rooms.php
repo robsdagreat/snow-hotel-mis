@@ -67,5 +67,20 @@ class Rooms {
         $stmt = $this->pdo->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    public function getAllRoomsWithStatus() {
+        $sql = "SELECT id, room_number, room_rate, is_available FROM rooms ORDER BY room_number ASC";
+        $stmt = $this->pdo->query($sql);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function updateRoomRate($room_id, $room_rate) {
+        $sql = "UPDATE rooms SET room_rate = :room_rate WHERE id = :room_id";
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute([
+            ':room_rate' => $room_rate,
+            ':room_id' => $room_id
+        ]);
+    }
 }
 ?>

@@ -450,6 +450,8 @@ $current_time = date('h:i A');
             
             <div class="nav-section" style="margin-top: auto;">
                 <ul class="nav-links">
+                    <li><a href="import_data.php" class="nav-link"><i class="fas fa-upload"></i>Import Data</a></li>
+                    <li><a href="view_rooms.php" class="nav-link"><i class="fas fa-bed"></i>Rooms</a></li>
                     <li><a href="../controllers/logout.php" class="nav-link"><i class="fas fa-sign-out-alt"></i>Logout</a></li>
                 </ul>
             </div>

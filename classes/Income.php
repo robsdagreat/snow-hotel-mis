@@ -34,8 +34,8 @@ class Income {
             
             // Rest of the method remains the same...
             
-            $sql = "INSERT INTO income (customer_id, service_id, amount, description, income_date, income_type, added_by) 
-                    VALUES (:customer_id, :service_id, :amount, :description, :income_date, :income_type, :added_by)";
+            $sql = "INSERT INTO income (customer_id, service_id, amount, description, transaction_date, income_type, added_by, created_at) 
+                    VALUES (:customer_id, :service_id, :amount, :description, :transaction_date, :income_type, :added_by, :created_at)";
             
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute([
@@ -43,9 +43,10 @@ class Income {
                 ':service_id' => $service_id,
                 ':amount' => $data['amount'],
                 ':description' => $data['description'],
-                ':income_date' => $data['date'],
-                ':income_type' => $data['type'],
-                ':added_by' => $data['added_by']
+                ':transaction_date' => $data['date'],
+                ':income_type' => $data['type'] ?? null,
+                ':added_by' => $data['added_by'] ?? null,
+                ':created_at' => date('Y-m-d H:i:s')
             ]);
             
             return true;

@@ -15,9 +15,22 @@ $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $page = max(1, $page); // Ensure page is at least 1
 $offset = ($page - 1) * $records_per_page;
 
-// Get paginated data and total count
-$history = $customers->getCustomerHistoryPaginated($offset, $records_per_page); // You'll need to create this method
-$total_records = $customers->getTotalCustomerHistoryCount(); // You'll need to create this method
+// Get filter parameters
+$start_date = !empty($_GET['start_date']) ? $_GET['start_date'] : '';
+$end_date = !empty($_GET['end_date']) ? $_GET['end_date'] : '';
+
+// Create filters array
+$filters = [];
+if (!empty($start_date)) {
+    $filters['start_date'] = $start_date;
+}
+if (!empty($end_date)) {
+    $filters['end_date'] = $end_date;
+}
+
+// Get paginated data and total count with filters
+$history = $customers->getCustomerHistoryPaginated($offset, $records_per_page, $filters);
+$total_records = $customers->getTotalCustomerHistoryCount($filters);
 $total_pages = ceil($total_records / $records_per_page);
 
 // Set breadcrumb variables
@@ -432,6 +445,154 @@ $current_time = date('h:i A');
                 flex-wrap: wrap;
             }
         }
+
+        .filters-container {
+            background-color: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .filters-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .filters-row {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .filter-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--dark);
+        }
+
+        .filter-group input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--gray-light);
+            border-radius: var(--radius);
+            font-size: 0.9rem;
+        }
+
+        .filters-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+            margin-top: 1rem;
+        }
+
+        /* Button Styles */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius);
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            gap: 0.5rem;
+        }
+
+        .btn i {
+            font-size: 0.9rem;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .filters-actions {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+        }
+
+        /* Updated pagination styles */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 5px;
+            margin: 20px 0;
+        }
+
+        .page-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 32px;
+            height: 32px;
+            padding: 0 6px;
+            border-radius: 4px;
+            text-decoration: none;
+            color: #5a5af1;
+            background-color: #fff;
+            border: 1px solid #dee2e6;
+            font-size: 14px;
+        }
+
+        .page-btn:hover:not(.current):not(.disabled) {
+            background-color: #e9ecef;
+            border-color: #dee2e6;
+            color: #5a5af1;
+        }
+
+        .page-btn.current {
+            background-color: #4caf50;
+            border-color: #4caf50;
+            color: #fff;
+        }
+
+        .page-btn.disabled {
+            color: #6c757d;
+            pointer-events: none;
+            background-color: #fff;
+            border-color: #dee2e6;
+            opacity: 0.65;
+        }
+
+        .showing-text {
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -461,6 +622,8 @@ $current_time = date('h:i A');
                     <li><a href="view_stock.php" class="nav-link"><i class="fas fa-boxes"></i>Inventory</a></li>
                     <li><a href="add_income.php" class="nav-link"><i class="fas fa-money-bill-wave"></i>Revenue</a></li>
                     <li><a href="view_customer_history.php" class="nav-link active"><i class="fas fa-history"></i>History</a></li>
+                    <li><a href="import_data.php" class="nav-link"><i class="fas fa-upload"></i>Import Data</a></li>
+<li><a href="view_rooms.php" class="nav-link"><i class="fas fa-bed"></i>Rooms</a></li>
                 </ul>
             </div>
             
@@ -503,6 +666,38 @@ $current_time = date('h:i A');
                 </div>
             </div>
             
+            <!-- Add this after the top-bar div and before the data-container -->
+            <div class="filters-container">
+                <form method="GET" class="filters-form">
+                    <div class="filters-row">
+                        <div class="filter-group">
+                            <label for="start_date">Start Date</label>
+                            <input type="date" 
+                                   id="start_date" 
+                                   name="start_date" 
+                                   class="form-control" 
+                                   value="<?= htmlspecialchars($start_date) ?>">
+                        </div>
+                        <div class="filter-group">
+                            <label for="end_date">End Date</label>
+                            <input type="date" 
+                                   id="end_date" 
+                                   name="end_date" 
+                                   class="form-control" 
+                                   value="<?= htmlspecialchars($end_date) ?>">
+                        </div>
+                    </div>
+                    <div class="filters-actions">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i> Search
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="clearFilters()">
+                            <i class="fas fa-times"></i> Clear Filters
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
             <!-- Table Container -->
             <div class="data-container">
                 <h2 class="table-title">Customer Stay History</h2>
@@ -543,59 +738,57 @@ $current_time = date('h:i A');
                     
                     <!-- Pagination -->
                     <?php if ($total_pages > 1): ?>
-                        <div class="pagination-info">
-                            Showing <?= min(($page - 1) * $records_per_page + 1, $total_records) ?> to 
-                            <?= min($page * $records_per_page, $total_records) ?> of <?= $total_records ?> records
-                        </div>
-                        <ul class="pagination">
-                            <!-- First Page -->
-                            <li class="page-item <?= ($page <= 1) ? 'disabled' : '' ?>">
-                                <a class="page-link" href="?page=1"><i class="fas fa-angle-double-left"></i></a>
-                            </li>
-                            
-                            <!-- Previous Page -->
-                            <li class="page-item <?= ($page <= 1) ? 'disabled' : '' ?>">
-                                <a class="page-link" href="?page=<?= ($page > 1) ? $page - 1 : 1 ?>">
-                                    <i class="fas fa-angle-left"></i>
-                                </a>
-                            </li>
-                            
-                            <!-- Page Numbers -->
+                        <div class="pagination">
                             <?php
-                            // Determine range of pages to display
-                            $start_page = max(1, $page - 2);
-                            $end_page = min($total_pages, $page + 2);
-                            
-                            // Ensure we always show 5 pages if possible
-                            if ($end_page - $start_page < 4 && $total_pages > 4) {
-                                if ($start_page == 1) {
-                                    $end_page = min($total_pages, 5);
-                                } elseif ($end_page == $total_pages) {
-                                    $start_page = max(1, $total_pages - 4);
-                                }
-                            }
-                            
-                            for ($i = $start_page; $i <= $end_page; $i++): 
+                            // Create query string with current filters
+                            $filters = $_GET;
+                            unset($filters['page']); // Remove page from filters
+                            $query_string = http_build_query($filters);
+                            $query_string = $query_string ? '&' . $query_string : '';
                             ?>
-                                <li class="page-item <?= ($page == $i) ? 'active' : '' ?>">
-                                    <a class="page-link" href="?page=<?= $i ?>"><?= $i ?></a>
-                                </li>
+
+                            <!-- First page -->
+                            <a href="?page=1<?= $query_string ?>" 
+                               class="page-btn <?= ($page == 1) ? 'disabled' : '' ?>">
+                                «
+                            </a>
+
+                            <!-- Previous page -->
+                            <a href="?page=<?= max(1, $page - 1) . $query_string ?>" 
+                               class="page-btn <?= ($page == 1) ? 'disabled' : '' ?>">
+                                ‹
+                            </a>
+
+                            <!-- Page numbers -->
+                            <?php
+                            $range = 2;
+                            $start_page = max(1, $page - $range);
+                            $end_page = min($total_pages, $page + $range);
+
+                            for ($i = $start_page; $i <= $end_page; $i++):
+                            ?>
+                                <a href="?page=<?= $i . $query_string ?>" 
+                                   class="page-btn <?= ($i == $page) ? 'current' : '' ?>">
+                                    <?= $i ?>
+                                </a>
                             <?php endfor; ?>
-                            
-                            <!-- Next Page -->
-                            <li class="page-item <?= ($page >= $total_pages) ? 'disabled' : '' ?>">
-                                <a class="page-link" href="?page=<?= ($page < $total_pages) ? $page + 1 : $total_pages ?>">
-                                    <i class="fas fa-angle-right"></i>
-                                </a>
-                            </li>
-                            
-                            <!-- Last Page -->
-                            <li class="page-item <?= ($page >= $total_pages) ? 'disabled' : '' ?>">
-                                <a class="page-link" href="?page=<?= $total_pages ?>">
-                                    <i class="fas fa-angle-double-right"></i>
-                                </a>
-                            </li>
-                        </ul>
+
+                            <!-- Next page -->
+                            <a href="?page=<?= min($total_pages, $page + 1) . $query_string ?>" 
+                               class="page-btn <?= ($page == $total_pages) ? 'disabled' : '' ?>">
+                                ›
+                            </a>
+
+                            <!-- Last page -->
+                            <a href="?page=<?= $total_pages . $query_string ?>" 
+                               class="page-btn <?= ($page == $total_pages) ? 'disabled' : '' ?>">
+                                »
+                            </a>
+                        </div>
+
+                        <div class="showing-text">
+                            Showing <?= ($offset + 1) ?> to <?= min($offset + $records_per_page, $total_records) ?> of <?= $total_records ?> entries
+                        </div>
                     <?php endif; ?>
                 <?php endif; ?>
             </div>
@@ -639,6 +832,28 @@ $current_time = date('h:i A');
                     }
                 });
             }
+        });
+
+        function clearFilters() {
+            // Clear the form inputs
+            document.getElementById('start_date').value = '';
+            document.getElementById('end_date').value = '';
+            // Submit the form to refresh the page without filters
+            document.querySelector('.filters-form').submit();
+        }
+
+        // Add date validation
+        document.addEventListener('DOMContentLoaded', function() {
+            const startDate = document.getElementById('start_date');
+            const endDate = document.getElementById('end_date');
+
+            startDate.addEventListener('change', function() {
+                endDate.min = this.value;
+            });
+
+            endDate.addEventListener('change', function() {
+                startDate.max = this.value;
+            });
         });
     </script>
 </body>

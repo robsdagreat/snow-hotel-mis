@@ -27,19 +27,20 @@ class Consumables {
         }
     }
     
-    public function addConsumable($item, $service, $unit, $unit_price) {
+    public function addConsumable($item, $service, $unit, $unit_price, $cost_price = 0) {
         $sql = "INSERT INTO consumables 
-        (item, service, unit, unit_price) 
-        VALUES (:item, :service, :unit, :unit_price)";
+        (item, service, unit, unit_price, cost_price) 
+        VALUES (:item, :service, :unit, :unit_price, :cost_price)";
         $stmt = $this->pdo->prepare($sql);
         try {
             $stmt->execute([
                 ':item' => $item, 
                 ':service' => $service,
                 ':unit' => $unit,
-                ':unit_price' => $unit_price
+                ':unit_price' => $unit_price,
+                ':cost_price' => $cost_price
             ]);
-            return true;
+            return $this->pdo->lastInsertId();
         } catch (PDOException $e) {
             die("Error inserting data: " . $e->getMessage());
         }
@@ -100,12 +101,13 @@ class Consumables {
         }
     }
     
-    public function updateConsumable($id, $item, $service, $unit, $unit_price) {
+    public function updateConsumable($id, $item, $service, $unit, $unit_price, $cost_price = 0) {
         $sql = "UPDATE consumables SET 
         item = :item, 
         service = :service, 
         unit = :unit, 
-        unit_price = :unit_price 
+        unit_price = :unit_price, 
+        cost_price = :cost_price
         WHERE id = :id";
         $stmt = $this->pdo->prepare($sql);
         try {
@@ -114,7 +116,8 @@ class Consumables {
                 ':item' => $item,
                 ':service' => $service,
                 ':unit' => $unit,
-                ':unit_price' => $unit_price                
+                ':unit_price' => $unit_price,
+                ':cost_price' => $cost_price
             ]);
             return true;
         } catch (PDOException $e) {
@@ -171,6 +174,146 @@ class Consumables {
             return (int)($result['total'] ?? 0);
         } catch (PDOException $e) {
             die("Error counting consumables: " . $e->getMessage());
+        }
+    }
+
+    public function searchConsumables($params = []) {
+        $sql = "SELECT c.*, s.service AS service_name
+                FROM consumables c
+                LEFT JOIN services s ON c.service = s.id
+                WHERE 1=1";
+        
+        $conditions = [];
+        $parameters = [];
+        
+        // Search by item name or service
+        if (!empty($params['search_term'])) {
+            $conditions[] = "(c.item LIKE :search_term OR s.service LIKE :search_term)";
+            $parameters[':search_term'] = "%" . $params['search_term'] . "%";
+        }
+        
+        // Filter by service
+        if (!empty($params['service_id'])) {
+            $conditions[] = "c.service = :service_id";
+            $parameters[':service_id'] = $params['service_id'];
+        }
+        
+        // Filter by price range
+        if (!empty($params['price_min'])) {
+            $conditions[] = "c.unit_price >= :price_min";
+            $parameters[':price_min'] = $params['price_min'];
+        }
+        if (!empty($params['price_max'])) {
+            $conditions[] = "c.unit_price <= :price_max";
+            $parameters[':price_max'] = $params['price_max'];
+        }
+        
+        // Add conditions to SQL
+        if (!empty($conditions)) {
+            $sql .= " AND " . implode(" AND ", $conditions);
+        }
+        
+        // Add sorting
+        $sort_by = $params['sort_by'] ?? 'id';
+        $order = $params['order'] ?? 'asc';
+        
+        // Validate sort_by to prevent SQL injection
+        $allowed_columns = ['id', 'item', 'service_name', 'unit', 'unit_price'];
+        if (!in_array($sort_by, $allowed_columns)) {
+            $sort_by = 'id';
+        }
+        
+        // Validate order to prevent SQL injection
+        $allowed_orders = ['asc', 'desc'];
+        if (!in_array(strtolower($order), $allowed_orders)) {
+            $order = 'asc';
+        }
+        
+        $sort_column = ($sort_by === 'service_name') ? 's.service' : "c.{$sort_by}";
+        $sql .= " ORDER BY {$sort_column} {$order}";
+        
+        // Add pagination
+        if (isset($params['limit']) && isset($params['offset'])) {
+            $sql .= " LIMIT :limit OFFSET :offset";
+            $parameters[':limit'] = (int)$params['limit'];
+            $parameters[':offset'] = (int)$params['offset'];
+        }
+        
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            foreach ($parameters as $key => $value) {
+                if ($key === ':limit' || $key === ':offset') {
+                    $stmt->bindValue($key, $value, PDO::PARAM_INT);
+                } else {
+                    $stmt->bindValue($key, $value);
+                }
+            }
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error searching consumables: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public function getSearchCount($params = []) {
+        $sql = "SELECT COUNT(*) as total 
+                FROM consumables c
+                LEFT JOIN services s ON c.service = s.id
+                WHERE 1=1";
+        
+        $conditions = [];
+        $parameters = [];
+        
+        // Search by item name or service
+        if (!empty($params['search_term'])) {
+            $conditions[] = "(c.item LIKE :search_term OR s.service LIKE :search_term)";
+            $parameters[':search_term'] = "%" . $params['search_term'] . "%";
+        }
+        
+        // Filter by service
+        if (!empty($params['service_id'])) {
+            $conditions[] = "c.service = :service_id";
+            $parameters[':service_id'] = $params['service_id'];
+        }
+        
+        // Filter by price range
+        if (!empty($params['price_min'])) {
+            $conditions[] = "c.unit_price >= :price_min";
+            $parameters[':price_min'] = $params['price_min'];
+        }
+        if (!empty($params['price_max'])) {
+            $conditions[] = "c.unit_price <= :price_max";
+            $parameters[':price_max'] = $params['price_max'];
+        }
+        
+        // Add conditions to SQL
+        if (!empty($conditions)) {
+            $sql .= " AND " . implode(" AND ", $conditions);
+        }
+        
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            foreach ($parameters as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
+            $stmt->execute();
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            return (int)$result['total'];
+        } catch (PDOException $e) {
+            error_log("Error counting search results: " . $e->getMessage());
+            return 0;
+        }
+    }
+
+    public function getAllServices() {
+        $sql = "SELECT id, service FROM services ORDER BY service ASC";
+        try {
+            $stmt = $this->pdo->query($sql);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error retrieving services: " . $e->getMessage());
+            return [];
         }
     }
 }

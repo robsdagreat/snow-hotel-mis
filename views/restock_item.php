@@ -24,10 +24,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             floatval($_POST['restock_quantity'][$stock_id]) : 0;
         $unit_price = isset($_POST['unit_price'][$stock_id]) ? 
                       floatval($_POST['unit_price'][$stock_id]) : $item['unit_price'];
+        $cost_price = isset($_POST['cost_price'][$stock_id]) ? 
+                      floatval($_POST['cost_price'][$stock_id]) : $item['cost_price'];
 
         if ($restock_quantity > 0) {
+            if ($unit_price < 0) {
+                $errors[] = "Unit price cannot be negative for {$item['item']}";
+                continue;
+            }
+            if ($cost_price < 0) {
+                $errors[] = "Cost price cannot be negative for {$item['item']}";
+                continue;
+            }
             try {
-                $result = $stock->restockItem($stock_id, $restock_quantity, $unit_price);
+                $result = $stock->restockItem($stock_id, $restock_quantity, $unit_price, $cost_price);
                 
                 if ($result) {
                     $restocked_items[] = $item['item'];
@@ -543,6 +553,8 @@ $current_time = date('h:i A');
                     <li><a href="view_stock.php" class="nav-link active"><i class="fas fa-boxes"></i>Inventory</a></li>
                     <li><a href="add_income.php" class="nav-link"><i class="fas fa-money-bill-wave"></i>Revenue</a></li>
                     <li><a href="view_customer_history.php" class="nav-link"><i class="fas fa-history"></i>History</a></li>
+                    <li><a href="import_data.php" class="nav-link"><i class="fas fa-upload"></i>Import Data</a></li>
+                    <li><a href="view_rooms.php" class="nav-link"><i class="fas fa-bed"></i>Rooms</a></li>
                 </ul>
             </div>
             
@@ -612,6 +624,7 @@ $current_time = date('h:i A');
                                         <th>Current Unit Price</th>
                                         <th>Restock Quantity</th>
                                         <th>New Unit Price</th>
+                                        <th>New Cost Price</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -623,7 +636,7 @@ $current_time = date('h:i A');
                                                 <?php endif; ?>
                                             </td>
                                             <td><?= htmlspecialchars($item['quantity']) ?></td>
-                                            <td>$<?= number_format($item['unit_price'], 2) ?></td>
+                                            <td><?= number_format($item['unit_price'], 2) ?></td>
                                             <td>
                                                 <input type="number" 
                                                        class="form-control" 
@@ -638,6 +651,14 @@ $current_time = date('h:i A');
                                                        min="0" step="0.01" 
                                                        placeholder="Optional new price"
                                                        value="<?= $item['unit_price'] ?>">
+                                            </td>
+                                            <td>
+                                                <input type="number" 
+                                                       class="form-control" 
+                                                       name="cost_price[<?= $item['id'] ?>]" 
+                                                       min="0" step="0.01" 
+                                                       placeholder="Optional new cost price"
+                                                       value="<?= $item['cost_price'] ?>">
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>

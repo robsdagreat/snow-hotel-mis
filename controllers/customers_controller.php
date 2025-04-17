@@ -11,6 +11,8 @@ ini_set('display_errors', 1);
 
 require_once '../classes/Customers.php';
 require_once '../classes/Rooms.php';
+require_once '../classes/Income.php';
+require_once '../classes/Services.php';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     if ($action === 'add_customer') {
@@ -75,6 +77,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if($customerId){
             $rooms->markRoomOccupied($roomId);
             $rooms->updateRoomHistory($roomId, $customerId, $arrivalDatetime, "", $numPersons, $numChildren, $roomRate, $modeOfPayment);
+            // Record room fee as income
+            $room_service = new Services();
+            $room_service_id = null;
+            $all_services = $room_service->getAllServices();
+            foreach ($all_services as $srv) {
+                if (strtolower($srv['service']) === 'room' || strtolower($srv['service']) === 'room stay') {
+                    $room_service_id = $srv['id'];
+                    break;
+                }
+            }
+            if (!$room_service_id && !empty($all_services)) {
+                $room_service_id = $all_services[0]['id']; // fallback to first service
+            }
+            $room_income = new Income();
+            $room_income->addIncomeData([
+                'customer_id' => $customerId,
+                'service_id' => $room_service_id,
+                'amount' => $discountedRoomRate,
+                'description' => 'Room stay fee (auto checkout)',
+                'date' => $departureDatetime,
+                'type' => 'room',
+                'added_by' => $_SESSION['user_id']
+            ]);
             header("Location: ../views/view_customers.php?success=1");
             exit();
         } 

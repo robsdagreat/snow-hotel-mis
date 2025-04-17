@@ -14,6 +14,7 @@ class Stock {
                 consumable_id INT NOT NULL,
                 quantity DECIMAL(10,2) NOT NULL DEFAULT 0,
                 unit_price DECIMAL(10,2) NOT NULL,
+                cost_price DECIMAL(10,2) NOT NULL,
                 total_value DECIMAL(10,2) NOT NULL,
                 last_updated DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 FOREIGN KEY (consumable_id) REFERENCES consumables(id)
@@ -27,6 +28,7 @@ class Stock {
                 quantity DECIMAL(10,2) NOT NULL,
                 description TEXT NOT NULL,
                 unit_price DECIMAL(10,2) NOT NULL,
+                cost_price DECIMAL(10,2) NOT NULL,
                 total_value DECIMAL(10,2) NOT NULL,                
                 transaction_datetime DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (consumable_id) REFERENCES consumables(id)
@@ -39,94 +41,225 @@ class Stock {
             die("Error creating tables: " . $e->getMessage());
         }
     }
-    
-    public function updateStock($consumable_id, $quantity, $description, $unit_price, $transaction_type) {
+
+    public function getStockByConsumableId($consumable_id) {
+        $sql = "
+            SELECT s.id, s.consumable_id, c.item, 
+                   s.quantity, s.unit_price, s.cost_price, s.total_value
+            FROM stock s
+            JOIN consumables c ON s.consumable_id = c.id
+            WHERE s.consumable_id = :consumable_id
+        ";
+        $stmt = $this->pdo->prepare($sql);
         try {
-            // Determine total price
-            $total_value = (float)$quantity * (float)$unit_price;
+            $stmt->execute([':consumable_id' => $consumable_id]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            // Determine adjusted quantity based on transaction type
-            $adjusted_quantity = $transaction_type === 'purchase' ? $quantity : -$quantity;
+            // Initialize cost_price if not set (for backward compatibility)
+            if ($result && !isset($result['cost_price'])) {
+                $result['cost_price'] = $result['unit_price'];
+            }
             
-            // Check if stock record exists
+            return $result;
+        } catch (PDOException $e) {
+            error_log("Error retrieving stock item: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    public function recordConsumption($consumable_id, $quantity, $description, $selling_price, $service_id = null, $transaction_datetime = null) {
+        try {
+            $current_stock = $this->getStockByConsumableId($consumable_id);
+            
+            if (!$current_stock) {
+                throw new Exception("No stock record found for this consumable");
+            }
+    
+            // Check for cost_price column in different possible formats
+            $cost_price = null;
+            if (isset($current_stock['cost_price'])) {
+                $cost_price = $current_stock['cost_price'];
+            } elseif (isset($current_stock['unit_price'])) {
+                // Fallback to unit_price if cost_price doesn't exist
+                $cost_price = $current_stock['unit_price'];
+            } else {
+                throw new Exception("Cost price not found for this item");
+            }
+    
+            if ($cost_price <= 0) {
+                throw new Exception("Cost price not properly initialized for this item");
+            }
+    
+            if ($current_stock['quantity'] < $quantity) {
+                throw new Exception("Not enough stock available");
+            }
+    
+            // Calculate values
+            $total_value = $quantity * $selling_price;
+            $total_cost = $quantity * $cost_price;
+            $profit = $total_value - $total_cost;
+    
+            // Update stock - only quantity changes
+            $new_quantity = $current_stock['quantity'] - $quantity;
+            
+            $updateSql = "UPDATE stock SET 
+                quantity = :quantity,
+                total_value = :total_value
+            WHERE consumable_id = :consumable_id";
+            
+            $updateStmt = $this->pdo->prepare($updateSql);
+            $updateStmt->execute([
+                ':quantity' => $new_quantity,
+                ':total_value' => $new_quantity * $cost_price,
+                ':consumable_id' => $consumable_id
+            ]);
+    
+            // Log transaction with profit
+            $logSql = "INSERT INTO stock_transactions (
+                consumable_id, transaction_type, quantity, description,
+                unit_price, cost_price, total_value, profit, service_id, transaction_datetime
+            ) VALUES (
+                :consumable_id, 'consumption', :quantity, :description,
+                :unit_price, :cost_price, :total_value, :profit, :service_id, :transaction_datetime
+            )";
+            
+            $logStmt = $this->pdo->prepare($logSql);
+            $logStmt->execute([
+                ':consumable_id' => $consumable_id,
+                ':quantity' => $quantity,
+                ':description' => $description,
+                ':unit_price' => $selling_price,
+                ':cost_price' => $cost_price,
+                ':total_value' => $total_value,
+                ':profit' => $profit,
+                ':service_id' => $service_id,
+                ':transaction_datetime' => $transaction_datetime ?? date('Y-m-d H:i:s')
+            ]);
+    
+            return true;
+        } catch (Exception $e) {
+            error_log("Error recording consumption: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    public function addNewStockItem($consumable_id, $quantity, $unit_price, $cost_price) {
+        try {
+            $sql = "INSERT INTO stock (consumable_id, quantity, unit_price, cost_price, total_value)
+                    VALUES (:consumable_id, :quantity, :unit_price, :cost_price, :total_value)";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([
+                ':consumable_id' => $consumable_id,
+                ':quantity' => $quantity,
+                ':unit_price' => $unit_price,
+                ':cost_price' => $cost_price,
+                ':total_value' => $quantity * $unit_price
+            ]);
+            return true;
+        } catch (PDOException $e) {
+            error_log('Error adding new stock item: ' . $e->getMessage());
+            return false;
+        }
+    }
+    
+    // Update the existing updateStock method to handle only purchases
+    public function updateStock($consumable_id, $quantity, $description, $cost_price, $transaction_type = 'purchase') {
+        if ($transaction_type !== 'purchase') {
+            throw new Exception("Use recordConsumption() method for consumption transactions");
+        }
+        
+        try {
+            $total_value = (float)$quantity * (float)$cost_price;
+            
             $checkSql = "SELECT quantity FROM stock WHERE consumable_id = :consumable_id";
             $checkStmt = $this->pdo->prepare($checkSql);
             $checkStmt->execute([':consumable_id' => $consumable_id]);
             $existingStock = $checkStmt->fetch(PDO::FETCH_ASSOC);
             
             if ($existingStock) {
-                // Update existing stock balance
-                $newQuantity = $existingStock['quantity'] + $adjusted_quantity;
+                $newQuantity = $existingStock['quantity'] + $quantity;
                 
                 $updateSql = "UPDATE stock SET 
                     quantity = :quantity, 
                     unit_price = :unit_price, 
+                    cost_price = :cost_price,
                     total_value = :total_value, 
                     last_updated = NOW() 
                 WHERE consumable_id = :consumable_id";
+                
                 $updateStmt = $this->pdo->prepare($updateSql);
                 $updateStmt->execute([
                     ':quantity' => $newQuantity,
-                    ':unit_price' => $unit_price,
+                    ':unit_price' => $cost_price,
+                    ':cost_price' => $cost_price,
                     ':total_value' => $total_value,
                     ':consumable_id' => $consumable_id,
                 ]);
             } else {
-                // Insert new stock record
-                $insertSql = "INSERT INTO 
-                stock (
+                $insertSql = "INSERT INTO stock (
                     consumable_id, 
                     quantity, 
-                    unit_price, 
+                    unit_price,
+                    cost_price,
                     total_value,                
-                    last_updated) 
-                VALUES (
+                    last_updated
+                ) VALUES (
                     :consumable_id, 
                     :quantity, 
-                    :unit_price, 
+                    :unit_price,
+                    :cost_price,
                     :total_value,                     
-                    NOW())";
+                    NOW()
+                )";
+                
                 $insertStmt = $this->pdo->prepare($insertSql);
                 $insertStmt->execute([
                     ':consumable_id' => $consumable_id,
-                    ':quantity' => $adjusted_quantity,
-                    ':unit_price' => $unit_price,
+                    ':quantity' => $quantity,
+                    ':unit_price' => $cost_price,
+                    ':cost_price' => $cost_price,
                     ':total_value' => $total_value                    
                 ]);
             }
             
-            // Log the transaction in stock_transactions
-            $logSql = "INSERT INTO 
-                stock_transactions (
+            // Log the purchase transaction
+            $logSql = "INSERT INTO stock_transactions (
                 consumable_id, 
                 transaction_type, 
                 quantity, 
                 description,
-                unit_price, 
+                unit_price,
+                cost_price,
                 total_value,
+                profit,
                 transaction_datetime
-            ) 
-            VALUES (
+            ) VALUES (
                 :consumable_id, 
-                :transaction_type, 
+                'purchase', 
                 :quantity, 
                 :description,
-                :unit_price, 
+                :unit_price,
+                :cost_price,
                 :total_value,
+                :profit,
                 NOW()
             )";
+            
             $logStmt = $this->pdo->prepare($logSql);
             $logStmt->execute([
                 ':consumable_id' => $consumable_id,
-                ':transaction_type' => $transaction_type,
                 ':quantity' => $quantity,
                 ':description' => $description,
-                ':unit_price' => $unit_price,
-                ':total_value' => $total_value
+                ':unit_price' => $cost_price,
+                ':cost_price' => $cost_price,
+                ':total_value' => $total_value,
+                ':profit' => 0 // No profit on purchases
             ]);
+            
             return true;
         } catch (PDOException $e) {
-            die("Error updating stock: " . $e->getMessage());
+            error_log("Error updating stock: " . $e->getMessage());
+            return false;
         }
     }
     
@@ -156,7 +289,7 @@ class Stock {
             
             // Retrieve paginated stock items
             $sql = "
-                SELECT s.id, s.consumable_id, c.item, s.quantity, s.unit_price, s.total_value, s.last_updated
+                SELECT s.id, s.consumable_id, c.item, s.quantity, s.unit_price,s.cost_price, s.total_value, s.last_updated
                 FROM stock s
                 JOIN consumables c ON s.consumable_id = c.id
                 LIMIT :per_page OFFSET :offset";
@@ -198,7 +331,9 @@ class Stock {
                 transaction_type, 
                 quantity, 
                 description, 
-                unit_price, 
+                unit_price,
+                cost_price, 
+                profit,
                 total_value, 
                 transaction_datetime
             FROM stock_transactions
@@ -214,14 +349,14 @@ class Stock {
         }
     }
     
-    // New methods for the pages we created earlier
     public function getStockItemById($stock_id) {
         $sql = "
-            SELECT s.id, s.consumable_id, c.item, s.quantity, s.unit_price, s.total_value
-            FROM stock s
-            JOIN consumables c ON s.consumable_id = c.id
-            WHERE s.id = :stock_id
-        ";
+        SELECT s.id, s.consumable_id, c.item, 
+               s.quantity, s.unit_price, s.cost_price, s.total_value
+        FROM stock s
+        JOIN consumables c ON s.consumable_id = c.id
+        WHERE s.id = :stock_id
+    ";
         $stmt = $this->pdo->prepare($sql);
         try {
             $stmt->execute([':stock_id' => $stock_id]);
@@ -231,13 +366,14 @@ class Stock {
         }
     }
     
-    public function updateStockItem($stock_id, $quantity, $unit_price) {
+    public function updateStockItem($stock_id, $quantity, $unit_price, $cost_price) {
         try {
             $total_value = $quantity * $unit_price;
             
             $sql = "UPDATE stock 
                     SET quantity = :quantity, 
                         unit_price = :unit_price, 
+                        cost_price = :cost_price,
                         total_value = :total_value, 
                         last_updated = NOW() 
                     WHERE id = :stock_id";
@@ -246,6 +382,7 @@ class Stock {
             $stmt->execute([
                 ':quantity' => $quantity,
                 ':unit_price' => $unit_price,
+                ':cost_price' => $cost_price,
                 ':total_value' => $total_value,
                 ':stock_id' => $stock_id
             ]);
@@ -258,7 +395,7 @@ class Stock {
     
     public function getAllStockItems() {
         $sql = "
-            SELECT s.id, s.consumable_id, c.item, s.quantity, s.unit_price, s.total_value
+            SELECT s.id, s.consumable_id, c.item, s.quantity, s.unit_price,s.cost_price, s.total_value
             FROM stock s
             JOIN consumables c ON s.consumable_id = c.id
         ";
@@ -270,35 +407,32 @@ class Stock {
         }
     }
     
-    public function restockItem($stock_id, $quantity, $unit_price) {
+    public function restockItem($stock_id, $quantity, $unit_price, $cost_price, $service_id = null, $transaction_datetime = null) {
         try {
             // First, get the current stock details
             $stockItem = $this->getStockItemById($stock_id);
-            
             if (!$stockItem) {
                 throw new Exception("Stock item not found");
             }
-            
             // Calculate new quantity and total value
             $newQuantity = $stockItem['quantity'] + $quantity;
             $total_value = $newQuantity * $unit_price;
-            
             // Update stock
             $sql = "UPDATE stock 
                     SET quantity = :quantity, 
                         unit_price = :unit_price, 
+                        cost_price = :cost_price, 
                         total_value = :total_value, 
                         last_updated = NOW() 
                     WHERE id = :stock_id";
-            
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute([
                 ':quantity' => $newQuantity,
                 ':unit_price' => $unit_price,
+                ':cost_price' => $cost_price,
                 ':total_value' => $total_value,
                 ':stock_id' => $stock_id
             ]);
-            
             // Log the transaction
             $logSql = "INSERT INTO stock_transactions (
                 consumable_id, 
@@ -306,24 +440,33 @@ class Stock {
                 quantity, 
                 description,
                 unit_price, 
-                total_value
+                cost_price,
+                total_value,
+                service_id,
+                transaction_datetime,
+                profit
             ) VALUES (
                 :consumable_id, 
                 'purchase', 
                 :quantity, 
                 'Restocking',
                 :unit_price, 
-                :total_value
+                :cost_price,
+                :total_value,
+                :service_id,
+                :transaction_datetime,
+                0
             )";
-            
             $logStmt = $this->pdo->prepare($logSql);
             $logStmt->execute([
                 ':consumable_id' => $stockItem['consumable_id'],
                 ':quantity' => $quantity,
                 ':unit_price' => $unit_price,
-                ':total_value' => $quantity * $unit_price
+                ':cost_price' => $cost_price,
+                ':total_value' => $quantity * $unit_price,
+                ':service_id' => $service_id,
+                ':transaction_datetime' => $transaction_datetime ?? date('Y-m-d H:i:s')
             ]);
-            
             return true;
         } catch (PDOException $e) {
             die("Error restocking item: " . $e->getMessage());
@@ -332,11 +475,12 @@ class Stock {
     
     public function getConsumableDetails($consumable_id) {
         $sql = "
-            SELECT c.id, c.item, c.service, c.unit, c.unit_price, s.quantity, s.total_value
-            FROM consumables c
-            LEFT JOIN stock s ON c.id = s.consumable_id
-            WHERE c.id = :consumable_id
-        ";
+        SELECT c.id, c.item, c.service, c.unit, c.unit_price, 
+               s.quantity, s.unit_price as selling_price, s.cost_price, s.total_value
+        FROM consumables c
+        LEFT JOIN stock s ON c.id = s.consumable_id
+        WHERE c.id = :consumable_id
+    ";
         $stmt = $this->pdo->prepare($sql);
         try {
             $stmt->execute([':consumable_id' => $consumable_id]);
@@ -345,7 +489,7 @@ class Stock {
             // If no stock record exists, create a default one
             if (!$result) {
                 // Get consumable details without stock
-                $sql = "SELECT id, item, service, unit, unit_price FROM consumables WHERE id = :consumable_id";
+                $sql = "SELECT id, item, service, unit, cost_price FROM consumables WHERE id = :consumable_id";
                 $stmt = $this->pdo->prepare($sql);
                 $stmt->execute([':consumable_id' => $consumable_id]);
                 $result = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -380,6 +524,7 @@ class Stock {
                     st.quantity,
                     st.description,
                     st.unit_price,
+                    st.cost_price,
                     st.total_value,
                     DATE_FORMAT(st.transaction_datetime, '%Y-%m-%d %H:%i:%s') as transaction_datetime
                    FROM stock_transactions st 
@@ -457,6 +602,7 @@ class Stock {
                     st.quantity,
                     st.description,
                     st.unit_price,
+                    st.cost_price,
                     st.total_value,
                     DATE_FORMAT(st.transaction_datetime, '%Y-%m-%d %H:%i:%s') as transaction_datetime
                    FROM stock_transactions st 
@@ -514,22 +660,6 @@ class Stock {
             ];
         }
     }
-    
-    public function getStockByConsumableId($consumable_id) {
-        $sql = "
-            SELECT s.id, s.consumable_id, c.item, s.quantity, s.unit_price, s.total_value
-            FROM stock s
-            JOIN consumables c ON s.consumable_id = c.id
-            WHERE s.consumable_id = :consumable_id
-        ";
-        $stmt = $this->pdo->prepare($sql);
-        try {
-            $stmt->execute([':consumable_id' => $consumable_id]);
-            return $stmt->fetch(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            die("Error retrieving stock item: " . $e->getMessage());
-        }
-    }
 
     public function fixInvalidDates() {
         try {
@@ -566,6 +696,98 @@ class Stock {
         } catch (PDOException $e) {
             error_log("Error fixing invalid service IDs: " . $e->getMessage());
             return false;
+        }
+    }
+
+    public function searchStock($search = '', $filter = 'all', $page = 1, $per_page = 15) {
+        // Ensure page is a positive integer
+        $page = max(1, (int)$page);
+        $offset = ($page - 1) * $per_page;
+        
+        try {
+            // Base query for both count and data
+            $baseQuery = "
+                FROM stock s
+                JOIN consumables c ON s.consumable_id = c.id
+                WHERE 1=1
+            ";
+            
+            $params = [];
+            
+            // Add search condition if search term is provided
+            if (!empty($search)) {
+                $baseQuery .= " AND (c.item LIKE :search OR c.service LIKE :search)";
+                $params[':search'] = "%{$search}%";
+            }
+            
+            // Add filter condition
+            if ($filter === 'low_stock') {
+                $baseQuery .= " AND s.quantity <= 10";
+            } elseif ($filter === 'in_stock') {
+                $baseQuery .= " AND s.quantity > 10";
+            }
+            
+            // Get total count
+            $count_sql = "SELECT COUNT(*) as total_count " . $baseQuery;
+            $count_stmt = $this->pdo->prepare($count_sql);
+            foreach ($params as $key => $value) {
+                $count_stmt->bindValue($key, $value);
+            }
+            $count_stmt->execute();
+            $total_count = $count_stmt->fetch(PDO::FETCH_ASSOC)['total_count'];
+            
+            // Calculate total pages
+            $total_pages = ceil($total_count / $per_page);
+            
+            // Get paginated results with additional fields
+            $sql = "
+                SELECT 
+                    s.id, 
+                    s.consumable_id, 
+                    c.item, 
+                    c.service,
+                    c.unit,
+                    s.quantity, 
+                    s.unit_price,
+                    s.cost_price, 
+                    s.total_value, 
+                    s.last_updated,
+                    CASE 
+                        WHEN s.quantity <= 10 THEN 'low'
+                        ELSE 'normal'
+                    END as stock_status
+                " . $baseQuery . "
+                ORDER BY s.last_updated DESC 
+                LIMIT :per_page OFFSET :offset
+            ";
+            
+            $stmt = $this->pdo->prepare($sql);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
+            $stmt->bindValue(':per_page', $per_page, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            $stmt->execute();
+            
+            return [
+                'items' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+                'total_pages' => $total_pages,
+                'current_page' => $page,
+                'total_items' => $total_count,
+                'search_term' => $search,
+                'filter' => $filter
+            ];
+            
+        } catch (PDOException $e) {
+            error_log("Error searching stock: " . $e->getMessage());
+            return [
+                'items' => [],
+                'total_pages' => 0,
+                'current_page' => $page,
+                'total_items' => 0,
+                'search_term' => $search,
+                'filter' => $filter
+            ];
         }
     }
 }

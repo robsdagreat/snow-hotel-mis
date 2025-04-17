@@ -386,6 +386,8 @@ $current_time = date('h:i A');
                     <li><a href="view_stock.php" class="nav-link active"><i class="fas fa-boxes"></i>Inventory</a></li>
                     <li><a href="add_income.php" class="nav-link"><i class="fas fa-money-bill-wave"></i>Revenue</a></li>
                     <li><a href="view_customer_history.php" class="nav-link"><i class="fas fa-history"></i>History</a></li>
+                    <li><a href="import_data.php" class="nav-link"><i class="fas fa-upload"></i>Import Data</a></li>
+                    <li><a href="view_rooms.php" class="nav-link"><i class="fas fa-bed"></i>Rooms</a></li>
                 </ul>
             </div>
             
@@ -433,7 +435,7 @@ $current_time = date('h:i A');
                     </tr>
                     <tr>
                         <th>Unit Price:</th>
-                        <td><?= number_format(floatval($consumable_details['unit_price'] ?? 0), 2) ?></td>
+                        <td><?= number_format(floatval($consumable_details['cost_price'] ?? 0), 2) ?></td>
                     </tr>
                 </table>
             </div>
@@ -454,6 +456,7 @@ $current_time = date('h:i A');
                                     <th>Transaction Type</th>
                                     <th>Description</th>
                                     <th>Unit Price</th>
+                                    <th>Cost Price</th>
                                     <th>Quantity</th>
                                     <th>Total Value</th>
                                 </tr>
@@ -465,6 +468,7 @@ $current_time = date('h:i A');
                                         <td><?= htmlspecialchars($transaction['transaction_type'] ?? 'N/A') ?></td>
                                         <td><?= htmlspecialchars($transaction['description'] ?? 'N/A') ?></td>
                                         <td><?= number_format(floatval($transaction['unit_price'] ?? 0), 2) ?></td>
+                                        <td><?= number_format(floatval($transaction['cost_price'] ?? 0), 2) ?></td>
                                         <td><?= htmlspecialchars($transaction['quantity'] ?? 'N/A') ?></td>
                                         <td><?= number_format(floatval($transaction['total_value'] ?? 0), 2) ?></td>
                                     </tr>

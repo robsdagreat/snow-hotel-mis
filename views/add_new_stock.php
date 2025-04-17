@@ -9,15 +9,23 @@ if (!isset($_SESSION['user_id'])) {
 
 require_once '../classes/Stock.php';
 require_once '../classes/Consumables.php';
+require_once '../classes/Services.php';
 
 $stock = new Stock();
 $consumable = new Consumables();
+$service = new Services();
+
+// Get all services for the dropdown
+$services = $service->getAllServices();
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $new_consumable_name = isset($_POST['new_consumable_name']) ? trim($_POST['new_consumable_name']) : '';
     $quantity = isset($_POST['quantity']) ? floatval($_POST['quantity']) : 0;
     $unit_price = isset($_POST['unit_price']) ? floatval($_POST['unit_price']) : 0;
+    $cost_price = isset($_POST['cost_price']) ? floatval($_POST['cost_price']) : 0;
+    $service_id = isset($_POST['service_id']) ? intval($_POST['service_id']) : 0;
+    $unit = isset($_POST['unit']) ? trim($_POST['unit']) : '';
     
     // Validate inputs
     $errors = [];
@@ -30,20 +38,28 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if ($unit_price < 0) {
         $errors[] = "Unit price cannot be negative.";
     }
+    if ($cost_price < 0) {
+        $errors[] = "Cost price cannot be negative.";
+    }
+    if ($service_id <= 0) {
+        $errors[] = "Please select a service.";
+    }
+    if (empty($unit)) {
+        $errors[] = "Please select a unit of measurement.";
+    }
     
     if (empty($errors)) {
         try {
-            // First, create a new consumable item
-            $new_consumable_data = [
-                'item' => $new_consumable_name,
-                'service' => 4, // Default service ID, adjust as needed
-                'unit' => 'Kilogram (kg)', // Default unit, adjust as needed
-                'unit_price' => $unit_price
-            ];
-            $new_consumable_id = $consumable->addConsumable($new_consumable_data);
+            // First, create a new consumable item with the selected service and unit
+            $new_consumable_id = $consumable->addConsumable(
+                $new_consumable_name,
+                $service_id,
+                $unit,
+                $unit_price
+            );
             
             // Then add the stock item using the new consumable ID
-            $result = $stock->addNewStockItem($new_consumable_id, $quantity, $unit_price);
+            $result = $stock->addNewStockItem($new_consumable_id, $quantity, $unit_price, $cost_price);
             
             if ($result) {
                 $_SESSION['success_message'] = "New stock item added successfully.";
@@ -478,6 +494,8 @@ $current_time = date('h:i A');
             
             <div class="nav-section" style="margin-top: auto;">
                 <ul class="nav-links">
+                    <li><a href="import_data.php" class="nav-link"><i class="fas fa-upload"></i>Import Data</a></li>
+                    <li><a href="view_rooms.php" class="nav-link"><i class="fas fa-bed"></i>Rooms</a></li>
                     <li><a href="../controllers/logout.php" class="nav-link"><i class="fas fa-sign-out-alt"></i>Logout</a></li>
                 </ul>
             </div>
@@ -537,6 +555,57 @@ $current_time = date('h:i A');
                     </div>
                     
                     <div class="form-group">
+                        <label for="service_id" class="form-label">Service</label>
+                        <select id="service_id" name="service_id" class="form-control" required>
+                            <option value="">Select a service</option>
+                            <?php foreach ($services as $s): ?>
+                                <option value="<?= $s['id'] ?>" <?= (isset($_POST['service_id']) && $_POST['service_id'] == $s['id']) ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($s['service']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="unit" class="form-label">Unit of Measurement</label>
+                        <select id="unit" name="unit" class="form-control" required>
+                            <option value="">-- Select Unit --</option>
+                            <option value="Kilogram (kg)" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Kilogram (kg)') ? 'selected' : '' ?>>Kilogram (kg)</option>
+                            <option value="Gram (g)" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Gram (g)') ? 'selected' : '' ?>>Gram (g)</option>
+                            <option value="Milligram (mg)" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Milligram (mg)') ? 'selected' : '' ?>>Milligram (mg)</option>
+                            <option value="Liter (L)" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Liter (L)') ? 'selected' : '' ?>>Liter (L)</option>
+                            <option value="Milliliter (mL)" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Milliliter (mL)') ? 'selected' : '' ?>>Milliliter (mL)</option>
+                            <option value="Cup" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Cup') ? 'selected' : '' ?>>Cup</option>
+                            <option value="Piece" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Piece') ? 'selected' : '' ?>>Piece</option>
+                            <option value="Unit" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Unit') ? 'selected' : '' ?>>Unit</option>
+                            <option value="Pack" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Pack') ? 'selected' : '' ?>>Pack</option>
+                            <option value="Box" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Box') ? 'selected' : '' ?>>Box</option>
+                            <option value="Carton" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Carton') ? 'selected' : '' ?>>Carton</option>
+                            <option value="Bundle" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Bundle') ? 'selected' : '' ?>>Bundle</option>
+                            <option value="Dozen" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Dozen') ? 'selected' : '' ?>>Dozen</option>
+                            <option value="Pair" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Pair') ? 'selected' : '' ?>>Pair</option>
+                            <option value="Set" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Set') ? 'selected' : '' ?>>Set</option>
+                            <option value="Bottle" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Bottle') ? 'selected' : '' ?>>Bottle</option>
+                            <option value="Jar" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Jar') ? 'selected' : '' ?>>Jar</option>
+                            <option value="Can" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Can') ? 'selected' : '' ?>>Can</option>
+                            <option value="Tube" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Tube') ? 'selected' : '' ?>>Tube</option>
+                            <option value="Tin" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Tin') ? 'selected' : '' ?>>Tin</option>
+                            <option value="Bag" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Bag') ? 'selected' : '' ?>>Bag</option>
+                            <option value="Packet" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Packet') ? 'selected' : '' ?>>Packet</option>
+                            <option value="Sachet" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Sachet') ? 'selected' : '' ?>>Sachet</option>
+                            <option value="Meter (m)" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Meter (m)') ? 'selected' : '' ?>>Meter (m)</option>
+                            <option value="Centimeter (cm)" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Centimeter (cm)') ? 'selected' : '' ?>>Centimeter (cm)</option>
+                            <option value="Roll" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Roll') ? 'selected' : '' ?>>Roll</option>
+                            <option value="Tray" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Tray') ? 'selected' : '' ?>>Tray</option>
+                            <option value="Slice" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Slice') ? 'selected' : '' ?>>Slice</option>
+                            <option value="Case" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Case') ? 'selected' : '' ?>>Case</option>
+                            <option value="Sack" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Sack') ? 'selected' : '' ?>>Sack</option>
+                            <option value="Envelope" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Envelope') ? 'selected' : '' ?>>Envelope</option>
+                            <option value="Cylinder" <?= (isset($_POST['unit']) && $_POST['unit'] == 'Cylinder') ? 'selected' : '' ?>>Cylinder</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
                         <label for="quantity" class="form-label">Initial Quantity</label>
                         <input type="number" id="quantity" name="quantity" class="form-control" 
                                value="<?= isset($_POST['quantity']) ? htmlspecialchars($_POST['quantity']) : '' ?>" 
@@ -550,6 +619,14 @@ $current_time = date('h:i A');
                                value="<?= isset($_POST['unit_price']) ? htmlspecialchars($_POST['unit_price']) : '' ?>" 
                                step="0.01" min="0" required 
                                placeholder="Enter unit price">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="cost_price" class="form-label">Cost Price</label>
+                        <input type="number" id="cost_price" name="cost_price" class="form-control" 
+                               value="<?= isset($_POST['cost_price']) ? htmlspecialchars($_POST['cost_price']) : '' ?>" 
+                               step="0.01" min="0" required 
+                               placeholder="Enter cost price">
                     </div>
                     
                     <div class="form-actions">
@@ -603,6 +680,7 @@ $current_time = date('h:i A');
                     const consumableName = form.querySelector('#new_consumable_name');
                     const quantity = form.querySelector('#quantity');
                     const unitPrice = form.querySelector('#unit_price');
+                    const costPrice = form.querySelector('#cost_price');
                     let isValid = true;
                     
                     if (consumableName.value.trim() === '') {
@@ -617,6 +695,11 @@ $current_time = date('h:i A');
                     
                     if (unitPrice.value < 0) {
                         alert('Unit price cannot be negative.');
+                        isValid = false;
+                    }
+                    
+                    if (costPrice.value < 0) {
+                        alert('Cost price cannot be negative.');
                         isValid = false;
                     }
                     

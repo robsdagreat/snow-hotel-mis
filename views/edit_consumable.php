@@ -536,6 +536,10 @@ $current_time = date('h:i A');
                             <label for="unit_price" class="form-label">Unit Price:</label>
                             <input type="number" step="0.01" id="unit_price" name="unit_price" class="form-control" value="<?= htmlspecialchars($consumable['unit_price']) ?>" required>
                         </div>
+                        <div class="form-group">
+                            <label for="cost_price" class="form-label">Cost Price:</label>
+                            <input type="number" step="0.01" id="cost_price" name="cost_price" class="form-control" value="<?= htmlspecialchars($consumable['cost_price'] ?? 0) ?>" required>
+                        </div>
                     </div>
                     
                     <div class="form-actions">

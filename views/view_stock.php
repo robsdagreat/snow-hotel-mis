@@ -9,25 +9,20 @@ if (!isset($_SESSION['user_id'])) {
 
 require_once '../classes/Stock.php';
 $stock = new Stock();
+
+$search = isset($_GET['search']) ? trim($_GET['search']) : '';
+$filter = isset($_GET['filter']) ? $_GET['filter'] : 'all';
 $current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $items_per_page = 15;
 
-// Change this to properly extract data and pagination info
-$stock_data = $stock->getStock($current_page, $items_per_page);
-$data = $stock_data['items'] ?? []; // Explicitly set $data from returned items
+$stock_data = $stock->searchStock($search, $filter, $current_page, $items_per_page);
+$data = $stock_data['items'] ?? [];
 $total_pages = $stock_data['total_pages'] ?? 0;
 $total_items = $stock_data['total_items'] ?? 0;
 
-echo "<!-- Debug Info 
-Total Items: $total_items
-Total Pages: $total_pages
-Current Page: $current_page
-Number of Items: " . count($data) . "
--->";
-
-// Rest of the code remains the same as in the original file
+// Set breadcrumb variables
 $breadcrumb_section = "Inventory";
-$breadcrumb_section_url = "manage_stock.php";
+$breadcrumb_section_url = "view_stock.php";
 $breadcrumb_page = "Current Stock";
 
 $today = date('F d, Y');
@@ -436,6 +431,94 @@ $current_time = date('h:i A');
                 overflow-x: auto;
             }
         }
+
+        /* Add these new search styles */
+        .search-container {
+            background: white;
+            padding: 1.5rem;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+        }
+
+        .search-form {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .search-form .form-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .search-input-wrapper {
+            position: relative;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray);
+        }
+
+        .search-form .form-control {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            border: 1px solid var(--gray-light);
+            border-radius: var(--radius);
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        .search-form select.form-control {
+            padding-left: 1rem;
+            cursor: pointer;
+        }
+
+        .search-form .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(90, 90, 241, 0.1);
+            outline: none;
+        }
+
+        .search-form .button-group {
+            display: flex;
+            gap: 0.5rem;
+            flex: 0 0 auto;
+            min-width: auto;
+        }
+
+        .search-form button {
+            white-space: nowrap;
+        }
+
+        .search-results-info {
+            margin-bottom: 1rem;
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+
+        .search-results-info p {
+            margin: 0;
+        }
+
+        @media (max-width: 768px) {
+            .search-form {
+                flex-direction: column;
+            }
+            
+            .search-form .form-group {
+                width: 100%;
+            }
+            
+            .search-form .button-group {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -465,6 +548,8 @@ $current_time = date('h:i A');
                     <li><a href="view_stock.php" class="nav-link active"><i class="fas fa-boxes"></i>Inventory</a></li>
                     <li><a href="add_income.php" class="nav-link"><i class="fas fa-money-bill-wave"></i>Revenue</a></li>
                     <li><a href="view_customer_history.php" class="nav-link"><i class="fas fa-history"></i>History</a></li>
+                    <li><a href="import_data.php" class="nav-link"><i class="fas fa-upload"></i>Import Data</a></li>
+                    <li><a href="view_rooms.php" class="nav-link"><i class="fas fa-bed"></i>Rooms</a></li>
                 </ul>
             </div>
             
@@ -507,6 +592,54 @@ $current_time = date('h:i A');
                 </div>
             </div>
             
+            <!-- Search Container -->
+            <div class="search-container">
+                <form action="" method="GET" class="search-form">
+                    <div class="form-group">
+                        <div class="search-input-wrapper">
+                            <i class="fas fa-search search-icon"></i>
+                            <input type="text" 
+                                   name="search" 
+                                   placeholder="Search by item name..." 
+                                   value="<?= htmlspecialchars($search) ?>"
+                                   class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <select name="filter" class="form-control">
+                            <option value="all" <?= $filter === 'all' ? 'selected' : '' ?>>All Items</option>
+                            <option value="low_stock" <?= $filter === 'low_stock' ? 'selected' : '' ?>>Low Stock</option>
+                            <option value="in_stock" <?= $filter === 'in_stock' ? 'selected' : '' ?>>In Stock</option>
+                        </select>
+                    </div>
+                    <div class="form-group button-group">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i> Search
+                        </button>
+                        <?php if (!empty($search) || $filter !== 'all'): ?>
+                            <a href="view_stock.php" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Clear
+                            </a>
+                        <?php endif; ?>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Search Results Info -->
+            <?php if (!empty($search) || $filter !== 'all'): ?>
+                <div class="search-results-info">
+                    <p>
+                        <?php if (!empty($search)): ?>
+                            Showing results for "<?= htmlspecialchars($search) ?>"
+                        <?php endif; ?>
+                        <?php if ($filter !== 'all'): ?>
+                            (Filter: <?= htmlspecialchars(ucfirst(str_replace('_', ' ', $filter))) ?>)
+                        <?php endif; ?>
+                        - <?= $total_items ?> items found
+                    </p>
+                </div>
+            <?php endif; ?>
+
             <!-- Table Container -->
             <div class="table-container">
                 <div class="table-header">
@@ -542,7 +675,7 @@ $current_time = date('h:i A');
             <td><?= htmlspecialchars($row['id']) ?></td>
             <td><?= htmlspecialchars($row['item']) ?></td>
             <td><?= htmlspecialchars($row['quantity']) ?></td>
-            <td><?= htmlspecialchars($row['unit_price']) ?></td>
+            <td><?= htmlspecialchars($row['cost_price']) ?></td>
             <td><?= htmlspecialchars($row['total_value']) ?></td>
             <td>
                 <?php 

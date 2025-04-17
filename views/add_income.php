@@ -71,25 +71,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // If no errors, save the income
     if (empty($errors)) {
         try {
-            // Get the service name for the selected service ID
-            $serviceDetails = $service->getServiceById($service_id);
-            $income_type = $serviceDetails ? $serviceDetails['service'] : 'Unknown';
-            
-            $income_data = [
-                'amount' => $amount,
-                'description' => $description,
-                'date' => $income_date,
-                'type' => $income_type, // The service name
-                'service_id' => $service_id, // The actual service ID
-                'added_by' => $_SESSION['user_id'],
-                'customer_id' => !empty($customer_id) ? $customer_id : null
-            ];
-            
-            if ($income->addIncomeData($income_data)) {
-                $success = true;
-            } else {
-                $errors['general'] = 'Failed to add income. Please try again.';
+            // Get the service name for the selected service ID(s)
+            $service_ids = $_POST['service_id'] ?? [];
+            if (!is_array($service_ids)) {
+                $service_ids = [$service_ids];
             }
+            foreach ($service_ids as $sid) {
+                $serviceDetails = $service->getServiceById($sid);
+                $income_type = $serviceDetails ? $serviceDetails['service'] : 'Unknown';
+                $income_data = [
+                    'amount' => $amount,
+                    'description' => $description,
+                    'date' => $income_date,
+                    'type' => $income_type, // The service name
+                    'service_id' => $sid, // The actual service ID
+                    'added_by' => $_SESSION['user_id'],
+                    'customer_id' => !empty($customer_id) ? $customer_id : null
+                ];
+                $income->addIncomeData($income_data);
+            }
+            $success = true;
         } catch (PDOException $e) {
             $errors['general'] = 'Database error: ' . $e->getMessage();
         }
@@ -618,6 +619,12 @@ if (isset($_GET['customer_id']) && !empty($_GET['customer_id'])) {
                 gap: 0.75rem; /* Reduce the gap on very small screens */
             }
         }
+
+        /* Update the side navbar to match the style of view_rooms and import_data */
+        .side-navbar {
+            top: 0;
+            left: 0;
+        }
     </style>
 </head>
 <body>
@@ -647,6 +654,8 @@ if (isset($_GET['customer_id']) && !empty($_GET['customer_id'])) {
                     <li><a href="view_stock.php" class="nav-link"><i class="fas fa-boxes"></i>Inventory</a></li>
                     <li><a href="view_income.php" class="nav-link active"><i class="fas fa-money-bill-wave"></i>Revenue</a></li>
                     <li><a href="view_customer_history.php" class="nav-link"><i class="fas fa-history"></i>History</a></li>
+                    <li><a href="import_data.php" class="nav-link"><i class="fas fa-upload"></i>Import Data</a></li>
+                    <li><a href="view_rooms.php" class="nav-link"><i class="fas fa-bed"></i>Rooms</a></li>
                 </ul>
             </div>
             
@@ -711,7 +720,7 @@ if (isset($_GET['customer_id']) && !empty($_GET['customer_id'])) {
                         <div class="search-container">
                             <input type="text" id="customer_search" class="form-control" 
                                    placeholder="Search customer by name, email, or ID..." 
-                                   <?= $selectedCustomer ? 'disabled' : '' ?>>
+                                   <?= $selectedCustomer ? 'disabled' : '' ?> autocomplete="off">
                             <div id="searchResults" class="search-results"></div>
                         </div>
                         
@@ -756,28 +765,18 @@ if (isset($_GET['customer_id']) && !empty($_GET['customer_id'])) {
                     </div>
                     
                     <div class="form-group">
-                      <label for="service_id" class="form-label">Service</label>
-                        <select id="service_id" name="service_id" class="form-control <?= isset($errors['service_id']) ? 'is-invalid' : '' ?>">
-                            <option value="">Select Income Type</option>
+                        <label for="service_id" class="form-label">Service / Privilege</label>
+                        <select id="service_id" name="service_id" class="form-control" required>
+                            <option value="">Select a service or privilege</option>
                             <?php foreach ($services as $srv): ?>
-                            <option value="<?= htmlspecialchars($srv['id']) ?>" 
-                                    <?= (isset($_POST['income_type']) && $_POST['income_type'] == $srv['id']) ? 'selected' : '' ?>>
+                            <option value="<?= htmlspecialchars($srv['id']) ?>">
                                 <?= htmlspecialchars($srv['service']) ?>
                             </option>
                             <?php endforeach; ?>
-                            
                             <?php if (empty($services)): ?>
                             <option value="other" disabled>No services found. Please add services first.</option>
                             <?php endif; ?>
                         </select>
-                        <?php if (isset($errors['service_id'])): ?>
-                        <div class="invalid-feedback"><?= $errors['service_id'] ?></div>
-                        <?php endif; ?>
-                        
-                        <small class="form-text text-muted">
-                            Select the type of service or income source. 
-                            <a href="view_services  .php">Manage services</a>
-                        </small>
                     </div>
                     
                     <div class="form-group">
@@ -873,7 +872,7 @@ if (isset($_GET['customer_id']) && !empty($_GET['customer_id'])) {
             
             // Debounce search requests
             searchTimeout = setTimeout(function() {
-                fetch(`search_customer_api.php?search_term=${encodeURIComponent(query)}`)
+                fetch(`controllers/search_customer_api.php?search_term=${encodeURIComponent(query)}`)
                     .then(response => {
                         if (!response.ok) {
                             throw new Error('Network response was not ok');
@@ -882,9 +881,7 @@ if (isset($_GET['customer_id']) && !empty($_GET['customer_id'])) {
                     })
                     .then(data => {
                         if (!searchResults) return;
-                        
                         searchResults.innerHTML = '';
-                        
                         if (data.length === 0) {
                             searchResults.innerHTML = '<div class="search-result-item">No customers found</div>';
                         } else {
@@ -895,61 +892,41 @@ if (isset($_GET['customer_id']) && !empty($_GET['customer_id'])) {
                                     <strong>${customer.guest_name}</strong><br>
                                     <small>ID: ${customer.id} | Phone: ${customer.mobile_number || 'N/A'}</small>
                                 `;
-                                
                                 item.addEventListener('click', function() {
-                                    // Set the customer ID in the hidden input
                                     if (customerIdInput) customerIdInput.value = customer.id;
-                                    
-                                    // Update the selected customer info section
                                     if (selectedCustomerInfo) {
                                         const customerNameEl = document.createElement('div');
                                         customerNameEl.className = 'customer-name';
                                         customerNameEl.textContent = customer.guest_name;
-                                        
-                                        // Create customer details element
                                         const customerDetailsEl = document.createElement('div');
                                         customerDetailsEl.className = 'customer-details';
                                         customerDetailsEl.innerHTML = `
                                             Customer room: ${customer.room_number || 'N/A'} | 
                                             Phone: ${customer.mobile_number || 'N/A'}
                                         `;
-                                                                                
-                                        // Clear previous content and add new customer info
                                         selectedCustomerInfo.innerHTML = '';
                                         selectedCustomerInfo.appendChild(customerNameEl);
                                         selectedCustomerInfo.appendChild(customerDetailsEl);
-
-                                        // Add customer actions (change customer button)
                                         const customerActionsEl = document.createElement('div');
                                         customerActionsEl.className = 'customer-actions';
                                         customerActionsEl.innerHTML = '<button type="button" id="clearCustomer" class="btn btn-primary">Change Customer</button>';
                                         selectedCustomerInfo.appendChild(customerActionsEl);
-
-                                        // Show customer info and hide system account message
                                         selectedCustomerInfo.style.display = 'block';
                                         if (systemAccountInfo) systemAccountInfo.style.display = 'none';
-
-                                        // Disable the search input
                                         if (customerSearch) {
                                             customerSearch.disabled = true;
                                             customerSearch.value = customer.guest_name;
                                         }
-
-                                        // Re-add event listener to the clear button (since we recreated it)
                                         const newClearBtn = document.getElementById('clearCustomer');
                                         if (newClearBtn) {
                                             newClearBtn.addEventListener('click', clearCustomerSelection);
                                         }
                                     }
-                                    
-                                    // Hide search results
                                     if (searchResults) searchResults.classList.remove('show');
                                 });
-
                                 searchResults.appendChild(item);
                             });
                         }
-                        
                         searchResults.classList.add('show');
                     })
                     .catch(error => {
@@ -971,7 +948,7 @@ if (isset($_GET['customer_id']) && !empty($_GET['customer_id'])) {
             }
         });
 
-        // Show search results when focusing on the search input
+        // Add event listener to show search results when focusing on the search input
         customerSearch.addEventListener('focus', function() {
             if (this.value.trim().length >= 2 && searchResults) {
                 searchResults.classList.add('show');

@@ -10,18 +10,38 @@ if (!isset($_SESSION['user_id'])) {
 require_once '../classes/Customers.php';
 $customer = new Customers();
 
+// Get filter parameters
+$search_term = $_GET['search_term'] ?? '';
+$status = $_GET['status'] ?? '';
+$payment_mode = $_GET['payment_mode'] ?? '';
+$date_from = $_GET['date_from'] ?? '';
+$date_to = $_GET['date_to'] ?? '';
+$nationality = $_GET['nationality'] ?? '';
+
 // Pagination settings
 $records_per_page = 15;
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-$page = max(1, $page); // Ensure page is at least 1
+$page = max(1, $page);
 $offset = ($page - 1) * $records_per_page;
 
-// Get total number of customers for pagination
-$total_customers = $customer->getTotalCustomers();
-$total_pages = ceil($total_customers / $records_per_page);
+// Create search parameters array
+$search_params = array_filter([
+    'search_term' => $search_term,
+    'status' => $status,
+    'payment_mode' => $payment_mode,
+    'date_from' => $date_from,
+    'date_to' => $date_to,
+    'nationality' => $nationality,
+    'limit' => $records_per_page,
+    'offset' => $offset
+], function($value) {
+    return $value !== '';
+});
 
-// Get paginated data
-$data = $customer->getPaginatedCustomers($records_per_page, $offset);
+// Get filtered data and total count
+$data = $customer->searchCustomer($search_params);
+$total_customers = $customer->getCustomerSearchCount($search_params);
+$total_pages = ceil($total_customers / $records_per_page);
 
 // Set breadcrumb variables
 $breadcrumb_section = "Customers";
@@ -458,6 +478,186 @@ $current_time = date('h:i A');
                 flex-wrap: wrap;
             }
         }
+
+        /* Advanced Filters Section */
+        .filters-container {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .filters-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .filters-row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .filter-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #666;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .date-range-inputs {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .date-separator {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .search-input-wrapper {
+            position: relative;
+        }
+
+        .search-input-wrapper i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+        }
+
+        .search-input-wrapper input {
+            padding-left: 35px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .form-control:focus {
+            border-color: #5a5af1;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(90, 90, 241, 0.1);
+        }
+
+        .filters-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+            margin-top: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .filters-row {
+                flex-direction: column;
+            }
+            
+            .filter-group {
+                width: 100%;
+            }
+            
+            .filters-actions {
+                flex-direction: column;
+            }
+            
+            .filters-actions button {
+                width: 100%;
+            }
+
+            .date-range-inputs {
+                flex-direction: column;
+            }
+
+            .date-separator {
+                text-align: center;
+                padding: 5px 0;
+            }
+        }
+
+        /* Reset any existing pagination styles */
+        .pagination,
+        .pagination * {
+            box-sizing: border-box;
+        }
+
+        .pagination {
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            gap: 5px !important;
+            margin: 20px 0 !important;
+        }
+
+        /* More specific selector to ensure our styles take precedence */
+        .pagination .page-btn {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            min-width: 36px !important;
+            height: 36px !important;
+            padding: 0 !important;
+            border-radius: 4px !important;
+            text-decoration: none !important;
+            background-color: #fff !important;  /* White background for inactive buttons */
+            color: #5a5af1 !important;         /* Blue text for inactive buttons */
+            border: 1px solid #dee2e6 !important;
+            font-size: 14px !important;
+            font-weight: normal !important;
+            transition: all 0.2s ease !important;
+        }
+
+        .pagination .page-btn:hover:not(.current):not(.disabled) {
+            background-color: #f8f9fa !important;
+            color: #5a5af1 !important;
+            z-index: 2 !important;
+        }
+
+        /* Extra specific selector to override any existing styles */
+        .pagination .page-btn.current,
+        .pagination a.page-btn.current {
+            background-color: #5a5af1 !important;  /* Blue background for active button */
+            color: #fff !important;               /* White text for active button */
+            border-color: #5a5af1 !important;
+            z-index: 3 !important;
+        }
+
+        .pagination .page-btn.disabled {
+            background-color: #fff !important;    /* White background for disabled buttons */
+            color: #6c757d !important;           /* Gray text for disabled buttons */
+            pointer-events: none !important;
+            opacity: 0.65 !important;
+        }
+
+        /* Remove any other pagination styles that might be interfering */
+        .pagination .page-btn:focus,
+        .pagination .page-btn:active {
+            outline: none !important;
+            box-shadow: none !important;
+        }
+
+        .showing-text {
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -487,11 +687,15 @@ $current_time = date('h:i A');
                     <li><a href="view_stock.php" class="nav-link"><i class="fas fa-boxes"></i>Inventory</a></li>
                     <li><a href="add_income.php" class="nav-link"><i class="fas fa-money-bill-wave"></i>Revenue</a></li>
                     <li><a href="view_customer_history.php" class="nav-link"><i class="fas fa-history"></i>History</a></li>
+                    <li><a href="import_data.php" class="nav-link"><i class="fas fa-upload"></i>Import Data</a></li>
+<li><a href="view_rooms.php" class="nav-link"><i class="fas fa-bed"></i>Rooms</a></li>
                 </ul>
             </div>
             
             <div class="nav-section" style="margin-top: auto;">
                 <ul class="nav-links">
+                    <li><a href="import_data.php" class="nav-link"><i class="fas fa-upload"></i>Import Data</a></li>
+                    <li><a href="view_rooms.php" class="nav-link"><i class="fas fa-bed"></i>Rooms</a></li>
                     <li><a href="../controllers/logout.php" class="nav-link"><i class="fas fa-sign-out-alt"></i>Logout</a></li>
                 </ul>
             </div>
@@ -531,6 +735,129 @@ $current_time = date('h:i A');
                     </div>
                 </div>
             </div>
+            
+            <!-- Move this right after your top bar section and BEFORE the table container -->
+            <div class="filters-container">
+                <!-- <h2 class="search-title">Advanced Customer Search</h2> -->
+                
+                <form id="filterForm" class="filters-form">
+                    <div class="filters-row">
+                        <div class="filter-group">
+                            <label>Search Term</label>
+                            <div class="search-input-wrapper">
+                                <i class="fas fa-search"></i>
+                                <input type="text" 
+                                       id="search_term" 
+                                       name="search_term" 
+                                       class="form-control" 
+                                       value="<?= htmlspecialchars($search_term) ?>"
+                                       placeholder="Name, Room, ID, or Phone">
+                            </div>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label>Guest Status</label>
+                            <select id="status" name="status" class="form-control">
+                                <option value="">All Guests</option>
+                                <option value="1" <?= $status === '1' ? 'selected' : '' ?>>Currently Checked In</option>
+                                <option value="0" <?= $status === '0' ? 'selected' : '' ?>>Checked Out</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Payment Mode</label>
+                            <select id="payment_mode" name="payment_mode" class="form-control">
+                                <option value="">All Payment Modes</option>
+                                <option value="Cash" <?= $payment_mode === 'Cash' ? 'selected' : '' ?>>Cash</option>
+                                <option value="Credit Card" <?= $payment_mode === 'Credit Card' ? 'selected' : '' ?>>Credit Card</option>
+                                <option value="Bank Transfer" <?= $payment_mode === 'Bank Transfer' ? 'selected' : '' ?>>Bank Transfer</option>
+                                <option value="Online Payment" <?= $payment_mode === 'Online Payment' ? 'selected' : '' ?>>Online Payment</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="filters-row">
+                        <div class="filter-group">
+                            <label>Check-in Date Range</label>
+                            <div class="date-range-inputs">
+                                <input type="date" 
+                                       id="date_from" 
+                                       name="date_from" 
+                                       class="form-control"
+                                       value="<?= htmlspecialchars($date_from) ?>"
+                                       placeholder="From">
+                                <span class="date-separator">to</span>
+                                <input type="date" 
+                                       id="date_to" 
+                                       name="date_to" 
+                                       class="form-control"
+                                       value="<?= htmlspecialchars($date_to) ?>"
+                                       placeholder="To">
+                            </div>
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Nationality</label>
+                            <input type="text" 
+                                   id="nationality" 
+                                   name="nationality" 
+                                   class="form-control" 
+                                   value="<?= htmlspecialchars($nationality) ?>"
+                                   placeholder="Enter nationality">
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Stay Duration</label>
+                            <select id="stay_duration" name="stay_duration" class="form-control">
+                                <option value="">Any Duration</option>
+                                <option value="1" <?= isset($_GET['stay_duration']) && $_GET['stay_duration'] === '1' ? 'selected' : '' ?>>1 Day</option>
+                                <option value="2-3" <?= isset($_GET['stay_duration']) && $_GET['stay_duration'] === '2-3' ? 'selected' : '' ?>>2-3 Days</option>
+                                <option value="4-7" <?= isset($_GET['stay_duration']) && $_GET['stay_duration'] === '4-7' ? 'selected' : '' ?>>4-7 Days</option>
+                                <option value="8+" <?= isset($_GET['stay_duration']) && $_GET['stay_duration'] === '8+' ? 'selected' : '' ?>>8+ Days</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="filters-actions">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i> Search
+                        </button>
+                        <button type="reset" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Clear Filters
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- After filters, add the search results info section -->
+            <?php if (!empty($search_term) || $status !== '' || !empty($payment_mode) || !empty($date_from) || !empty($date_to) || !empty($nationality) || !empty($_GET['stay_duration'])): ?>
+                <div class="search-results-info">
+                    <p>
+                        <?php if (!empty($search_term)): ?>
+                            Showing results for "<?= htmlspecialchars($search_term) ?>"
+                        <?php endif; ?>
+                        <?php if ($status !== ''): ?>
+                            (Status: <?= $status === '1' ? 'Currently Checked In' : 'Checked Out' ?>)
+                        <?php endif; ?>
+                        <?php if (!empty($payment_mode)): ?>
+                            (Payment: <?= htmlspecialchars($payment_mode) ?>)
+                        <?php endif; ?>
+                        <?php if (!empty($date_from) || !empty($date_to)): ?>
+                            (Date Range: <?= !empty($date_from) ? date('M d, Y', strtotime($date_from)) : 'Any' ?> 
+                            to 
+                            <?= !empty($date_to) ? date('M d, Y', strtotime($date_to)) : 'Any' ?>)
+                        <?php endif; ?>
+                        <?php if (!empty($nationality)): ?>
+                            (Nationality: <?= htmlspecialchars($nationality) ?>)
+                        <?php endif; ?>
+                        <?php if (!empty($_GET['stay_duration'])): ?>
+                            (Stay Duration: <?= htmlspecialchars($_GET['stay_duration']) ?> 
+                            <?= $_GET['stay_duration'] === '1' ? 'Day' : 'Days' ?>)
+                        <?php endif; ?>
+                        - <?= $total_customers ?> customers found
+                    </p>
+                </div>
+            <?php endif; ?>
             
             <!-- Table Container -->
             <div class="table-container">
@@ -580,45 +907,55 @@ $current_time = date('h:i A');
                     <!-- Pagination -->
                     <?php if ($total_pages > 1): ?>
                         <div class="pagination">
-                            <?php if ($page > 1): ?>
-                                <a href="?page=1" title="First page"><i class="fas fa-angle-double-left"></i></a>
-                                <a href="?page=<?= $page - 1 ?>" title="Previous page"><i class="fas fa-angle-left"></i></a>
-                            <?php endif; ?>
-                            
                             <?php
-                            $start_page = max(1, $page - 2);
-                            $end_page = min($total_pages, $page + 2);
-                            
-                            // Always show first page
-                            if ($start_page > 1) {
-                                echo '<a href="?page=1">1</a>';
-                                if ($start_page > 2) {
-                                    echo '<span>...</span>';
-                                }
-                            }
-                            
-                            // Display page links
-                            for ($i = $start_page; $i <= $end_page; $i++) {
-                                if ($i == $page) {
-                                    echo '<span class="current">' . $i . '</span>';
-                                } else {
-                                    echo '<a href="?page=' . $i . '">' . $i . '</a>';
-                                }
-                            }
-                            
-                            // Always show last page
-                            if ($end_page < $total_pages) {
-                                if ($end_page < $total_pages - 1) {
-                                    echo '<span>...</span>';
-                                }
-                                echo '<a href="?page=' . $total_pages . '">' . $total_pages . '</a>';
-                            }
+                            // Create query string with current filters
+                            $filters = $_GET;
+                            unset($filters['page']); // Remove page from filters
+                            $query_string = http_build_query($filters);
+                            $query_string = $query_string ? '&' . $query_string : '';
                             ?>
-                            
-                            <?php if ($page < $total_pages): ?>
-                                <a href="?page=<?= $page + 1 ?>" title="Next page"><i class="fas fa-angle-right"></i></a>
-                                <a href="?page=<?= $total_pages ?>" title="Last page"><i class="fas fa-angle-double-right"></i></a>
-                            <?php endif; ?>
+
+                            <!-- First page -->
+                            <a href="?page=1<?= $query_string ?>" 
+                               class="page-btn <?= ($page == 1) ? 'disabled' : '' ?>">
+                                «
+                            </a>
+
+                            <!-- Previous page -->
+                            <a href="?page=<?= max(1, $page - 1) . $query_string ?>" 
+                               class="page-btn <?= ($page == 1) ? 'disabled' : '' ?>">
+                                ‹
+                            </a>
+
+                            <!-- Page numbers -->
+                            <?php
+                            $range = 2;
+                            $start_page = max(1, $page - $range);
+                            $end_page = min($total_pages, $page + $range);
+
+                            for ($i = $start_page; $i <= $end_page; $i++):
+                            ?>
+                                <a href="?page=<?= $i . $query_string ?>" 
+                                   class="page-btn <?= ($i == $page) ? 'current' : '' ?>">
+                                    <?= $i ?>
+                                </a>
+                            <?php endfor; ?>
+
+                            <!-- Next page -->
+                            <a href="?page=<?= min($total_pages, $page + 1) . $query_string ?>" 
+                               class="page-btn <?= ($page == $total_pages) ? 'disabled' : '' ?>">
+                                ›
+                            </a>
+
+                            <!-- Last page -->
+                            <a href="?page=<?= $total_pages . $query_string ?>" 
+                               class="page-btn <?= ($page == $total_pages) ? 'disabled' : '' ?>">
+                                »
+                            </a>
+                        </div>
+
+                        <div class="showing-text">
+                            Showing <?= ($offset + 1) ?> to <?= min($offset + $records_per_page, $total_customers) ?> of <?= $total_customers ?> entries
                         </div>
                     <?php endif; ?>
                 <?php endif; ?>
@@ -667,6 +1004,21 @@ $current_time = date('h:i A');
                     }
                 });
             }
+
+            const filterForm = document.getElementById('filterForm');
+            
+            // Handle form submission
+            filterForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                this.submit();
+            });
+            
+            // Handle form reset
+            filterForm.addEventListener('reset', function(e) {
+                setTimeout(() => {
+                    window.location.href = 'view_customers.php';
+                }, 0);
+            });
         });
     </script>
 </body>

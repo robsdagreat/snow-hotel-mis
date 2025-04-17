@@ -139,15 +139,6 @@ $current_time = date('h:i A');
             font-size: 1.8rem;
         }
 
-        /* .close-sidebar {
-            display: none;
-            color: white;
-            background: transparent;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-        } */
-
         .nav-section {
             margin-bottom: 1.5rem;
         }
@@ -542,6 +533,110 @@ $current_time = date('h:i A');
                 grid-template-columns: 1fr;
             }
         }
+
+        .section-wrapper {
+            margin-bottom: 2rem;
+        }
+
+        .data-container {
+            background: white;
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--gray-light);
+        }
+
+        .data-table th {
+            background-color: var(--light);
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .data-table tbody tr:hover {
+            background-color: rgba(90, 90, 241, 0.05);
+        }
+
+        .departure-date {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+
+        .departure-date.today {
+            background-color: rgba(244, 67, 54, 0.1);
+            color: var(--danger);
+        }
+
+        .departure-date.tomorrow {
+            background-color: rgba(255, 152, 0, 0.1);
+            color: var(--warning);
+        }
+
+        .contact-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--gray);
+            font-size: 0.875rem;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        .empty-state i {
+            font-size: 2.5rem;
+            color: var(--gray);
+            margin-bottom: 1rem;
+        }
+
+        .empty-state p {
+            color: var(--gray);
+            font-size: 0.95rem;
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .section-title i {
+            color: var(--primary);
+        }
     </style>
 </head>
 <body>
@@ -572,6 +667,8 @@ $current_time = date('h:i A');
                     <li><a href="views/view_stock.php" class="nav-link"><i class="fas fa-boxes"></i>Inventory</a></li>
                     <li><a href="views/add_income.php" class="nav-link"><i class="fas fa-money-bill-wave"></i>Revenue</a></li>
                     <li><a href="views/view_customer_history.php" class="nav-link"><i class="fas fa-history"></i>History</a></li>
+                    <li><a href="views/import_data.php" class="nav-link"><i class="fas fa-upload"></i>Import Data</a></li>
+                    <li><a href="views/view_rooms.php" class="nav-link"><i class="fas fa-bed"></i>Rooms</a></li>
                 </ul>
             </div>
             
@@ -644,7 +741,7 @@ $current_time = date('h:i A');
                     </div>
                     <div class="metric-details">
                         <h3>Monthly Revenue</h3>
-                        <div class="metric-value">$<?= number_format($metrics['monthly_revenue']) ?></div>
+                        <div class="metric-value"><?= number_format($metrics['monthly_revenue']) ?></div>
                     </div>
                 </div>
                 <div class="dashboard-card metric-card">
@@ -656,6 +753,76 @@ $current_time = date('h:i A');
                         <div class="metric-value"><?= $metrics['pending_checkouts'] ?></div>
                     </div>
                 </div>
+            </div>
+            
+            <!-- Pending Checkouts Section -->
+            <div class="section-wrapper">
+                <h2 class="section-title">
+                    <i class="fas fa-clock"></i>
+                    Pending Checkouts (Next 48 Hours)
+                </h2>
+                
+                <?php if (count($pendingCheckouts) > 0): ?>
+                    <div class="data-container">
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Room</th>
+                                        <th>Guest Name</th>
+                                        <th>Check-in Date</th>
+                                        <th>Departure Date</th>
+                                        <th>Contact</th>
+                                        <th>Total Amount</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($pendingCheckouts as $customer): ?>
+                                        <tr>
+                                            <td><?= htmlspecialchars($customer['room_number']) ?></td>
+                                            <td><?= htmlspecialchars($customer['guest_name']) ?></td>
+                                            <td><?= date('M d, Y', strtotime($customer['arrival_datetime'])) ?></td>
+                                            <td>
+                                                <span class="departure-date <?= date('Y-m-d', strtotime($customer['departure_datetime'])) === date('Y-m-d') ? 'today' : 'tomorrow' ?>">
+                                                    <?= date('M d, Y', strtotime($customer['departure_datetime'])) ?>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <?php if ($customer['mobile_number']): ?>
+                                                    <span class="contact-info">
+                                                        <i class="fas fa-phone"></i> <?= htmlspecialchars($customer['mobile_number']) ?>
+                                                    </span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td><?= number_format($customer['total_amount'], 2) ?></td>
+                                            <td>
+                                                <div class="action-buttons">
+                                                    <a href="views/view_customer_details.php?id=<?= $customer['id'] ?>" 
+                                                       class="btn btn-primary btn-sm" 
+                                                       title="View Details">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    <a href="views/checkout_customer.php?id=<?= $customer['id'] ?>" 
+                                                       class="btn btn-danger btn-sm"
+                                                       title="Process Checkout"
+                                                       onclick="return confirm('Are you sure you want to check out this customer?');">
+                                                        <i class="fas fa-sign-out-alt"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                <?php else: ?>
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-check"></i>
+                        <p>No pending checkouts for the next 48 hours</p>
+                    </div>
+                <?php endif; ?>
             </div>
             
             <!-- Quick Actions -->
@@ -681,7 +848,7 @@ $current_time = date('h:i A');
                     <span class="action-name">Record Income</span>
                 </a>
                 
-                <a href="views/manage_stock.php" class="action-card">
+                <a href="views/view_stock.php" class="action-card">
                     <i class="fas fa-boxes"></i>
                     <span class="action-name">Manage Stock</span>
                 </a>

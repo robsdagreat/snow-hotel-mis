@@ -19,10 +19,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $service_id = $_POST['service_id'] ?? '';
     $unit = $_POST['unit'] ?? '';
     $unit_price = $_POST['unit_price'] ?? '';
+    $cost_price = $_POST['cost_price'] ?? '';
     // Validate inputs
     $errors = $validator->validateConsumable($item, $service_id, $unit, $unit_price);
+    if (!is_numeric($cost_price) || $cost_price === '') {
+        $errors[] = 'Cost price is required and must be numeric.';
+    }
     if (empty($errors)) {
-        if ($consumables->addConsumable($item, $service_id, $unit, $unit_price)) {
+        if ($consumables->addConsumable($item, $service_id, $unit, $unit_price, $cost_price)) {
             header("Location: ../views/view_consumables.php?success=1");
             exit();
         } else {
@@ -40,11 +44,15 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_PO
     $item = $_POST['item'] ?? '';
     $service_id = $_POST['service_id'] ?? '';
     $unit = $_POST['unit'] ?? '';
-    $unit_price = $_POST['unit_price'] ?? '';    
+    $unit_price = $_POST['unit_price'] ?? '';
+    $cost_price = $_POST['cost_price'] ?? '';
     // Validate inputs
     $errors = $validator->validateConsumable($item, $service_id, $unit, $unit_price);
+    if (!is_numeric($cost_price) || $cost_price === '') {
+        $errors[] = 'Cost price is required and must be numeric.';
+    }
     if (empty($errors)) {
-        if ($consumables->updateConsumable($id, $item, $service_id, $unit, $unit_price)) {
+        if ($consumables->updateConsumable($id, $item, $service_id, $unit, $unit_price, $cost_price)) {
             header("Location: ../views/view_consumables.php?success=1");
             exit();
         } else {

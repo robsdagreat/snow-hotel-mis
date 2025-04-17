@@ -578,6 +578,10 @@ $current_time = date('h:i A');
                             <label for="unit_price" class="form-label">Unit Price:</label>
                             <input type="text" id="unit_price" name="unit_price" class="form-control" placeholder="Enter unit price" required>
                         </div>
+                        <div class="form-group">
+                            <label for="cost_price" class="form-label">Cost Price:</label>
+                            <input type="number" id="cost_price" name="cost_price" class="form-control" placeholder="Enter cost price" required step="0.01" min="0">
+                        </div>
                     </div>
                     
                     <div class="form-actions">
